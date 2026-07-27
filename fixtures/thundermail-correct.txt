@@ -1,0 +1,40 @@
+Application Basics
+
+  Name: Thunderbird
+  Version: 140.2.1
+  Build ID: 20260701093000
+  Distribution ID:
+  User Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Thunderbird/140.2.1
+  OS: Darwin 25.5.0
+  Launcher Process: Enabled
+  Multiprocess Windows: 1/1
+  Enterprise Policies: Inactive
+  Google Location Service Key: Found
+  Google Safebrowsing Key: Found
+  Mozilla Location Service Key: Found
+  Profiles: about:profiles
+
+Mail and News Accounts
+
+  account1:
+    INCOMING: account1, , (imap) mail.thundermail.com:993, SSL, OAuth2
+    OUTGOING: , mail.thundermail.com:465, SSL, OAuth2, true
+
+Crashes
+
+  Report ID
+
+Extensions
+
+  Name Version Enabled ID
+
+Mail Libraries
+
+  RNP: Enabled
+  RNP Version: rnp 0.17.1
+  OTR: Enabled
+
+Graphics
+
+  Features
+  Compositing: WebRender

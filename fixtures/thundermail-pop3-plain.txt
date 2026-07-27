@@ -1,0 +1,3 @@
+  account1:
+    INCOMING: account1, , (pop3) mail.thundermail.com:110, plain, passwordCleartext
+    OUTGOING: , mail.thundermail.com:587, alwaysSTARTTLS, passwordCleartext, true

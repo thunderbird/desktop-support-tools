@@ -1,0 +1,15 @@
+Application Basics
+
+  Name: Thunderbird
+  Version: 140.2.1
+  Build ID: 20260701093000
+  User Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Thunderbird/140.2.1
+  OS: Linux 6.11.0-26-generic
+
+Mail and News Accounts
+
+  account1:
+    INCOMING: account1, , (imap) mail.thundermail.com:993, SSL, OAuth2
+    OUTGOING: , mail.thundermail.com:465, SSL, OAuth2, true
+  account3:
+    INCOMING: account3, , , undefined,

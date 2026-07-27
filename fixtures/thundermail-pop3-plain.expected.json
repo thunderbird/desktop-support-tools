@@ -1,0 +1,31 @@
+{
+  "input": {
+    "kind": "fragment",
+    "privateDataShown": false
+  },
+  "app": {},
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "pop3",
+        "host": "mail.thundermail.com",
+        "port": 110,
+        "socketType": "plain",
+        "authMethod": "passwordCleartext",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "mail.thundermail.com",
+          "port": 587,
+          "socketType": "alwaysSTARTTLS",
+          "authMethod": "passwordCleartext",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,52 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": false
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "140.2.1",
+    "buildId": "20260701093000",
+    "os": "Linux 6.11.0-26-generic",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Thunderbird/140.2.1"
+  },
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "imap",
+        "host": "mail.thundermail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "mail.thundermail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "key": "account3",
+      "incoming": {
+        "protocol": null,
+        "host": null,
+        "port": null,
+        "socketType": "undefined",
+        "authMethod": null,
+        "warnings": [
+          "Thunderbird could not read this account's incoming server",
+          "unrecognised socketType: 'undefined'"
+        ]
+      },
+      "outgoing": []
+    }
+  ],
+  "warnings": []
+}

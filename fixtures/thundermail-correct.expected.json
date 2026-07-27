@@ -1,0 +1,37 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": false
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "140.2.1",
+    "buildId": "20260701093000",
+    "os": "Darwin 25.5.0",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Thunderbird/140.2.1"
+  },
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "imap",
+        "host": "mail.thundermail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "mail.thundermail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,91 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": false
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "153.0",
+    "buildId": "20260717002111",
+    "os": "Darwin 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:24 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6020",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Thunderbird/153.0"
+  },
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "imap",
+        "host": "imap.gmail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "smtp.gmail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "key": "account2",
+      "incoming": {
+        "protocol": "none",
+        "host": "Local Folders",
+        "port": null,
+        "socketType": "plain",
+        "authMethod": "passwordCleartext",
+        "warnings": []
+      },
+      "outgoing": []
+    },
+    {
+      "key": "account6",
+      "incoming": {
+        "protocol": "imap",
+        "host": "mail.thundermail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "mail.thundermail.com",
+          "port": 587,
+          "socketType": "alwaysSTARTTLS",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "key": "account8",
+      "incoming": {
+        "protocol": "imap",
+        "host": "mail.thundermail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "mail.thundermail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

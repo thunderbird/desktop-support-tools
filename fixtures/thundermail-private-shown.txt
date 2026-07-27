@@ -1,0 +1,22 @@
+Warning: This information may identify you. Please review it before sending it to anyone.
+
+Application Basics
+
+  Name: Thunderbird
+  Version: 141.0
+  Build ID: 20260715120000
+  User Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Thunderbird/141.0
+  OS: Windows_NT 10.0 26100
+
+Mail and News Accounts
+
+  account1:
+    INCOMING: account1, Work, Personal, (imap) mail.thundermail.com:993, SSL, OAuth2
+    OUTGOING: tester@example.com, mail.thundermail.com:465, SSL, OAuth2, true
+    OUTGOING: tester+lists@example.com, mail.thundermail.com:465, SSL, passwordCleartext, false
+  account2:
+    INCOMING: account2, Local Folders, (none) Local Folders, plain, none
+
+Mail Libraries
+
+  RNP: Enabled

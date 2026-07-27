@@ -1,0 +1,94 @@
+  WARNING:
+  This contains sensitive information which shouldn't be forwarded or published without permission.
+
+  Application Basics
+
+    Name: Thunderbird
+    Version: 153.0
+    Build ID: 20260717002111
+    Distribution ID:
+
+    Update Channel: release
+    User Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Thunderbird/153.0
+    OS: Darwin 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:24 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6020
+    OS Theme:
+    Rosetta Translated: false
+
+    Multiprocess Windows: 0/0
+    Fission Windows: 0/0
+              Enabled by default
+    Remote Processes: 2
+    Enterprise Policies: Inactive
+    Safe Mode: false
+    Memory Size (RAM): 32.0 GB
+    Disk Space Available: 180 GB
+
+  Mail and News Accounts
+    account1:
+      INCOMING: account1, nemo@example.net, (imap) imap.gmail.com:993, 3, 10
+      OUTGOING: nemo macmonthly <nemo@example.net>, smtp.gmail.com:465, 3, 10, true
+
+    account2:
+      INCOMING: account2, Local Folders, (none) Local Folders, 0, 3
+
+    account6:
+      INCOMING: account6, nemo@example.com, (imap) mail.thundermail.com:993, 3, 10
+      OUTGOING: nemo testing <nemo@example.com>, mail.thundermail.com:587, 2, 10, true
+
+  Libraries
+
+      Library
+      Status
+      Expected minimum version
+      Version in use
+      Path
+
+        RNP (OpenPGP)
+        OK
+        0.18.1
+        0.18.1.MZLA.153.0.botan.3.11.1
+
+        OTR
+        Failed to load. OTR chat encryption will not work.
+        -
+
+  Calendar Settings
+
+      Stalwart Calendar (tester@example.com)
+
+        Name
+        Value
+
+        Name: Stalwart Calendar (tester@example.com)
+        Type: caldav
+        Disabled:
+        Username: tester@example.com
+        URI: https://mail.thundermail.com/dav/cal/tester%40example.com/default/
+        Read-only: false
+        Event Supported: true
+        Task Supported: true
+
+  Crash Reports for the Last 3 Days
+    https://crash-stats.mozilla.com/report/index/bp-259f3694-381e-435a-8bff-e2e490260727 (1 minute ago)
+
+  Remote Processes
+
+    Type: Count
+
+      RDD: 1
+      Extension: 1
+
+  Important Locked Preferences
+
+    fission.autostart.session: true
+    media.utility-process.enabled: true
+
+  Internationalization & Localization
+
+      Application Settings
+      Requested Locales: ["en-US","de","it"]
+      Default Locale: "en-US"
+
+  Printing
+
+  Modified print settings

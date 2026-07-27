@@ -1,0 +1,59 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": true
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "141.0",
+    "buildId": "20260715120000",
+    "os": "Windows_NT 10.0 26100",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Thunderbird/141.0"
+  },
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "imap",
+        "host": "mail.thundermail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "mail.thundermail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        },
+        {
+          "host": "mail.thundermail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "passwordCleartext",
+          "isDefault": false,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "key": "account2",
+      "incoming": {
+        "protocol": "none",
+        "host": "Local Folders",
+        "port": null,
+        "socketType": "plain",
+        "authMethod": "none",
+        "warnings": []
+      },
+      "outgoing": []
+    }
+  ],
+  "warnings": [
+    "input contained private data (account or identity names); it was discarded and is not included in this result"
+  ]
+}

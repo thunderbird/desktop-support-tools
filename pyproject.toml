@@ -1,0 +1,15 @@
+[project]
+name = "desktop-support-tools"
+version = "0.1.0"
+description = "Tools to help Thunderbird support staff and volunteers troubleshoot Thunderbird Desktop"
+requires-python = ">=3.11"
+license = { text = "MPL-2.0" }
+# The parser deliberately has no runtime dependencies: the webapp is a static
+# page with no build step, and the CLI should run anywhere Python does.
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
