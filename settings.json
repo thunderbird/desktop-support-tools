@@ -47,8 +47,9 @@
     "$unverified": [
       "trySTARTTLS has no dropdown entry of its own; labelling it STARTTLS is",
       "an inference from the value it replaced.",
-      "The 'Account Actions → Add Mail Account…' path quoted in the pop3",
-      "remediation below."
+      "What the '+ Add Account' button opens -- a menu of account types, or",
+      "the setup wizard directly -- was not observed, so the pop3 remediation",
+      "stops at naming the button."
     ],
 
     "locations": {
@@ -56,8 +57,8 @@
         "Keyed by the 'direction' on each protocol below, so the engine can",
         "name the right dialog without hard-coding either string."
       ],
-      "incoming": "Thunderbird app menu ☰ → Account Settings → select the account in the left sidebar → Server Settings",
-      "outgoing": "Thunderbird app menu ☰ → Account Settings → select the account in the left sidebar → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog)"
+      "incoming": "Thunderbird app menu ☰ → Account Settings → the account's Server Settings in the left sidebar",
+      "outgoing": "Thunderbird app menu ☰ → Account Settings → click the account's own row in the left sidebar, not one of the entries beneath it → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog)"
     },
     "$accountSelectionComment": [
       "The sidebar lists accounts by email address, which this tool discards",
@@ -264,7 +265,7 @@
           "supported": false,
           "verdict": "fail",
           "message": "POP isn't supported — use IMAP.",
-          "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP: Thunderbird app menu ☰ → Account Settings → Account Actions → Add Mail Account…, which configures mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2.",
+          "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP, using the + Add Account button at the top of the left sidebar in Account Settings. Autoconfiguration should set mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2 for incoming mail, and mail.thundermail.com:587 with STARTTLS for outgoing.",
           "provenance": "No POP host or port exists in production config, and the Thundermail UI has no POP tab.",
           "$comment": [
             "The verdict is 'POP isn't supported' rather than 'your POP",
