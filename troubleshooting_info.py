@@ -47,7 +47,8 @@ import re
 # yields nothing the lookup misses and the code falls back to the raw integer:
 # ``aIndex in gSocketTypes ? gSocketTypes[aIndex] : aIndex``. Thunderbird 153
 # takes that fallback, so a current dump reads ", 3, 10" where the source
-# suggests ", SSL, OAuth2". Confirmed against a real 153.0 macOS dump.
+# suggests ", SSL, OAuth2". Confirmed against real 153.0 dumps on both macOS and
+# Windows 11, so it is the build that decides this, not the platform.
 #
 # Numbers are from nsMsgSocketType / nsMsgAuthMethod in
 # mailnews/base/public/MailNewsTypes2.idl.
@@ -237,7 +238,10 @@ def parse(text: str) -> dict:
     Accounts lines on their own, since support staff often ask for -- and users
     often send -- only the relevant fragment.
     """
-    # Windows builds copy with CRLF line endings (see createTextForElement).
+    # Windows builds copy with CRLF line endings -- verified against a real
+    # Windows 11 / TB 153 clipboard capture (468 CRLF, no lone LF). Whether
+    # createTextForElement writes them or Gecko's widget layer converts on the
+    # way to the clipboard is undetermined, and does not matter here.
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
     accounts: list[dict] = []

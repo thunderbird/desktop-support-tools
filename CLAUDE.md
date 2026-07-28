@@ -70,7 +70,50 @@ Verified against comm-central; don't re-derive it from guesses.
 **There is no JSON export.** `mail/components/about-support/content/aboutSupport.xhtml`
 has "Copy text to clipboard" only — the "Copy raw data to clipboard" button
 Firefox has is commented out, marked *"Not used on TB"*. Text is the only input
-format available.
+format we can rely on.
+
+**But "Copy text to clipboard" also puts a `text/html` flavour on the clipboard**,
+and it is the rendered DOM, not the text serialisation. Verified on Windows 11 /
+TB 153 with `Get-Clipboard -TextFormatType Html`: a `CF_HTML` payload whose
+accounts section is a real `<table id="accounts-table">`, one `<td>` per field:
+
+```html
+<tr><td rowspan="1">account1</td><td rowspan="1" class="data-private"></td>
+<td rowspan="1">(imap) imap.gmail.com:993</td><td rowspan="1">3</td><td rowspan="1">10</td>
+<td rowspan="1" class="data-private"></td><td rowspan="1">smtp.gmail.com:465</td>
+<td rowspan="1">3</td><td rowspan="1">10</td><td rowspan="1">true</td></tr>
+```
+
+The string `INCOMING` appears nowhere in it — those prefixes exist only in
+`getAccountsText()`. Four things this format has that the text does not:
+
+- **Fields are cells**, so both comma traps below (commas inside `name`, trailing
+  empty fields) simply do not arise.
+- **`class="data-private"` marks the private cells explicitly**, so PII is
+  identified by markup rather than by position.
+- **`rowspan` on the account-level cells** encodes accounts with several outgoing
+  servers; an account with no outgoing server (Local Folders) just ends its row
+  early, so cell counts vary per row.
+- **`data-l10n-id` survives the copy** (`app-basics-version`, `accounts-title`),
+  which would make App Basics parsing locale-neutral and lift the English-only
+  limitation on version detection noted below.
+
+It does *not* solve everything: `hostDetails` is still one cell
+(`(imap) imap.gmail.com:993`), needing the same protocol/host/port regex.
+
+**This is knowledge, not a plan.** Text stays the contract, for three reasons:
+the CLI gets text only (`pbpaste` has no equivalent path), forwarded dumps —
+SUMO replies, Bugzilla comments, plain-text mail, hand-copied fragments — carry
+no HTML flavour, and a parser only one front-end can exercise is precisely the
+drift `fixtures/` exists to prevent. The defensible use, if we ever want it, is
+as a webapp-only *cross-check*: a `paste` event already exposes
+`clipboardData.getData("text/html")` for free, so parse the text as always and
+flag a mismatch if HTML happens to be present. If that is ever built, parse it
+with `DOMParser` and never assign it into the live document.
+
+The numbers `3` and `10` in that markup are worth noting separately: the DOM
+carries raw integers too, so the `gSocketTypes` fallback described below is not
+an artefact of the text serialiser but of the shared lookup both paths use.
 
 The private-data toggle is labelled **"Include account names"** in the UI (the
 underlying class is `CLASS_DATA_PRIVATE`). Unchecked is the default.
@@ -95,8 +138,9 @@ account1:
 looks them up in a table built from `Object.entries(Ci.nsMsgSocketType)`. But
 when that enumeration yields nothing the code falls back to the raw integer
 (`aIndex in gSocketTypes ? gSocketTypes[aIndex] : aIndex`), and **Thunderbird 153
-takes the fallback**. A current dump reads `, 3, 10`. Confirmed against a real
-153.0 macOS dump; older dumps may still carry names. Normalise to the name.
+takes the fallback**. A current dump reads `, 3, 10`. Confirmed against real
+153.0 dumps on **both** macOS and Windows 11, so the build decides this and not
+the platform; older dumps may still carry names. Normalise to the name.
 
 Values from `nsMsgSocketType` / `nsMsgAuthMethod` in
 `mailnews/base/public/MailNewsTypes2.idl`:
@@ -126,7 +170,18 @@ Three parsing traps, all covered by fixtures:
   is a `sokectType` typo in the `catch` branch upstream). That's a finding to
   report, not a parse failure.
 
-Windows builds copy with CRLF. Accept both.
+Windows builds copy with CRLF. Accept both. Confirmed by capturing the clipboard
+byte-exactly on Windows 11 / TB 153 (`Get-Clipboard -Raw` piped to
+`[IO.File]::WriteAllText`, never through a terminal or editor, both of which
+normalise): 468 CRLF and **zero** lone LF. That includes the newlines *inside*
+multi-line Graphics values such as the WebGL WSI blobs, so a real dump is never
+mixed-ending — the parser handles mixed input anyway, but no fixture needs to.
+
+What that measurement cannot tell you is *who* writes the CRLF. Windows'
+`CF_UNICODETEXT` is CRLF by convention and Gecko's widget layer converts line
+breaks on the way to the clipboard, so the result is equally consistent with
+`createTextForElement` emitting plain LF. Don't attribute it to `export.js`.
+For our purposes the distinction is moot: what a support person pastes is CRLF.
 
 ## Why the no-PII rule is free
 

@@ -1,0 +1,176 @@
+  Application Basics
+
+    Name: Thunderbird
+    Version: 153.0
+    Build ID: 20260717002111
+    Distribution ID:
+
+    Update Channel: release
+    User Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Thunderbird/153.0
+    OS: Windows_NT 10.0 26200
+    OS Theme:
+
+    Launcher Process: Enabled
+    Multiprocess Windows: 0/0
+    Fission Windows: 0/0
+              Enabled by default
+    Remote Processes: 4
+    Enterprise Policies: Inactive
+    Safe Mode: false
+    Memory Size (RAM): 15.9 GB
+    Disk Space Available: 152 GB
+
+  Mail and News Accounts
+    account1:
+      INCOMING: account1, , (imap) imap.gmail.com:993, 3, 10
+      OUTGOING: , smtp.gmail.com:465, 3, 10, true
+
+    account2:
+      INCOMING: account2, , (none) Local Folders, 0, 3
+
+  Libraries
+
+      Library
+      Status
+      Expected minimum version
+      Version in use
+      Path
+
+        RNP (OpenPGP)
+        OK
+        0.18.1
+        0.18.1.MZLA.153.0.botan.3.11.1
+        C:\Program Files\THUNDERBIRD_MONTHLY\rnp.dll
+
+        OTR
+        Failed to load. OTR chat encryption will not work.
+        -
+        -
+        -
+
+  Calendar Settings
+
+    Home
+
+      Name
+      Value
+
+      Name:
+      Type: storage
+      Disabled: true
+      Username:
+      URI:
+      Read-only:
+      iMIP Identity: id1
+      Priority Supported: true
+
+  Crash Reports for the Last 3 Days
+
+  Remote Processes
+
+    Type: Count
+
+      Isolated Web Content: 1
+      Extension: 1
+
+  Add-ons
+
+      Name
+      Type
+      Version
+      Enabled
+      Location
+      ID
+
+        Thundermail
+        extension
+        2.0.5
+        true
+        app-builtin-addons
+        tbpro-system-add-on@thunderbird.net
+
+  Security Software
+
+    Type: Name
+
+      Antivirus: Microsoft Defender Antivirus
+      Antispyware:
+      Firewall: Windows Firewall
+
+  Graphics
+
+      Features
+      Compositing: WebRender Layer Compositor
+      Font Visibility Debug Info: Windows Platform
+      WebGL 1 Driver WSI Info: EGL_VENDOR: Google Inc. (Intel)
+EGL_VERSION: 1.5 (ANGLE 2.1.19767 git hash: 7b0bc3d196d4)
+EGL_EXTENSIONS: EGL_EXT_create_context_robustness EGL_ANGLE_keyed_mutex
+EGL_EXTENSIONS(nullptr): EGL_EXT_client_extensions EGL_EXT_device_query
+      WebGL 1 Driver Version: OpenGL ES 3.0.0 (ANGLE 2.1.19767 git hash: 7b0bc3d196d4)
+      Target Frame Rate: 60
+      DirectWrite: true (10.0.26100.8737)
+
+      Diagnostics
+      Display0: 2048x1536@59Hz scales:1.000000|1.000000 SDR
+      ClearType Parameters: Gamma: 1.8 Pixel Structure: RGB ClearType Level: 100 Enhanced Contrast: 50
+
+      Decision Log
+      HW_DECODED_VIDEO_ZERO_COPY: blocked by default: Blocklisted by gfxInfo
+      WEBGL: available by default
+
+    Crash Guard Disabled Features
+
+    Workarounds
+
+    Failure Log
+
+  Environment Variables
+
+    MOZ_APP_RESTART: 1
+    MOZ_CRASHREPORTER_DATA_DIRECTORY: C:\Users\nemo\AppData\Roaming\Thunderbird\Crash Reports
+    MOZ_CRASHREPORTER_EVENTS_DIRECTORY: C:\Users\nemo\AppData\Roaming\Thunderbird\Profiles\abcd1234.default-release\crashes\events
+    MOZ_LAUNCHER_PROCESS: 1
+
+  Important Modified Preferences
+
+    browser.search.region: CA
+    extensions.lastAppVersion: 153.0
+    media.hardware-video-decoding.failed: false
+    ui.osk.debug.keyboardDisplayReason: IKPOS: Keyboard presence confirmed.
+
+  Important Locked Preferences
+
+    fission.autostart.session: true
+    media.utility-process.enabled: true
+
+  Accessibility
+
+    Activated: false
+    Accessible Handler Used:
+    Accessibility Instantiator:
+
+  Sandbox
+
+    Content Process Sandbox Level: 7
+    Win32k Lockdown State for Content Process: Win32k Lockdown enabled -- default value is true
+    GPU Process Sandbox Level: 2
+
+  Startup Cache
+
+    Disk Cache Path: C:\Users\nemo\AppData\Local\Thunderbird\Profiles\abcd1234.default-release\startupCache\startupCache.8.little
+    Ignore Disk Cache: false
+
+  Internationalization & Localization
+
+      Application Settings
+      Requested Locales: ["en-US"]
+      Default Locale: "en-US"
+
+  Remote Debugging (Chromium Protocol)
+
+    Accepting Connections:
+    URL:
+
+  Printing
+
+  Modified print settings

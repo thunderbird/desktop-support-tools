@@ -1,0 +1,49 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": false
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "153.0",
+    "buildId": "20260717002111",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Thunderbird/153.0",
+    "os": "Windows_NT 10.0 26200"
+  },
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "imap",
+        "host": "imap.gmail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "smtp.gmail.com",
+          "port": 465,
+          "socketType": "SSL",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "key": "account2",
+      "incoming": {
+        "protocol": "none",
+        "host": "Local Folders",
+        "port": null,
+        "socketType": "plain",
+        "authMethod": "passwordCleartext",
+        "warnings": []
+      },
+      "outgoing": []
+    }
+  ],
+  "warnings": []
+}
