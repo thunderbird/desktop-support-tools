@@ -1,0 +1,31 @@
+{
+  "input": {
+    "kind": "fragment",
+    "privateDataShown": false
+  },
+  "app": {},
+  "accounts": [
+    {
+      "key": "account1",
+      "incoming": {
+        "protocol": "imap",
+        "host": "imap.thundermail.com",
+        "port": 993,
+        "socketType": "SSL",
+        "authMethod": "OAuth2",
+        "warnings": []
+      },
+      "outgoing": [
+        {
+          "host": "smtp.thundermail.com",
+          "port": 587,
+          "socketType": "alwaysSTARTTLS",
+          "authMethod": "OAuth2",
+          "isDefault": true,
+          "warnings": []
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

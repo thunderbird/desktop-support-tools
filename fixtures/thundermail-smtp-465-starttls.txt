@@ -1,0 +1,3 @@
+account1:
+  INCOMING: account1, , (imap) mail.thundermail.com:993, SSL, OAuth2
+  OUTGOING: , mail.thundermail.com:465, alwaysSTARTTLS, OAuth2, true

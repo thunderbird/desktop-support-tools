@@ -101,24 +101,22 @@ def test_ui_labels_cover_the_whole_vocabulary(settings: dict) -> None:
     dropdown offers the choice at all, so remediation must steer to a
     different method instead of naming this one.
     """
-    socket_labels = settings["ui"]["socketTypeLabels"]
-    choices = settings["ui"]["authMethodChoices"]
+    sockets = settings["ui"]["socketTypeChoices"]
+    auths = settings["ui"]["authMethodChoices"]
 
-    assert keys(socket_labels) == set(SOCKET_TYPES)
-    assert keys(choices) == set(AUTH_METHODS)
+    assert keys(sockets) == set(SOCKET_TYPES)
+    assert keys(auths) == set(AUTH_METHODS)
 
-    for label in (socket_labels[key] for key in keys(socket_labels)):
-        assert isinstance(label, str) and label.strip()
-
-    for name in keys(choices):
-        choice = choices[name]
-        offered = choice["offeredIn"]
-        assert set(offered) <= DIRECTIONS
-        if choice["label"] is None:
-            assert offered == [], f"{name}: unlabelled but marked as offered"
-        else:
-            assert choice["label"].strip()
-            assert offered, f"{name}: labelled but offered in no dialog"
+    for vocabulary in (sockets, auths):
+        for name in keys(vocabulary):
+            choice = vocabulary[name]
+            offered = choice["offeredIn"]
+            assert set(offered) <= DIRECTIONS
+            if choice["label"] is None:
+                assert offered == [], f"{name}: unlabelled but marked as offered"
+            else:
+                assert choice["label"].strip()
+                assert offered, f"{name}: labelled but offered in no dialog"
 
 
 def test_every_protocol_names_a_dialog(settings: dict) -> None:
@@ -232,3 +230,55 @@ def test_thundermail_does_not_offer_pop_or_jmap(settings: dict) -> None:
     )
     assert thundermail["protocols"]["pop3"]["supported"] is False
     assert thundermail["protocols"]["jmap"]["supported"] is False
+
+
+def test_expected_servers_use_selectable_connection_security(settings: dict) -> None:
+    """An expected value must be one the user can actually choose.
+
+    trySTARTTLS decodes but is offered by no dropdown, so naming it as the
+    target of a fix would be impossible to follow.
+    """
+    sockets = settings["ui"]["socketTypeChoices"]
+    for provider_id, name, protocol in supported_protocols(settings):
+        direction = protocol["direction"]
+        for server in protocol["servers"]:
+            offered = sockets[server["socketType"]]["offeredIn"]
+            assert direction in offered, (
+                f"{provider_id}/{name} expects {server['socketType']!r}, which "
+                f"the {direction} dropdown does not offer"
+            )
+
+
+def test_known_issues_are_well_formed(settings: dict) -> None:
+    """The catalogue is data, so its shape is the only thing holding it up."""
+    ids = [issue["id"] for issue in settings["knownIssues"]]
+    assert len(ids) == len(set(ids))
+
+    matcher_keys = {
+        "protocol",
+        "direction",
+        "port",
+        "socketType",
+        "authMethod",
+        "hostSuffix",
+        "hostNotOneOf",
+    }
+
+    for issue in settings["knownIssues"]:
+        when = issue["when"]
+        assert when, f"{issue['id']}: matches everything"
+        assert keys(when) <= matcher_keys, f"{issue['id']}: unknown matcher key"
+        if "socketType" in when:
+            assert when["socketType"] in SOCKET_TYPES
+        if "authMethod" in when:
+            assert when["authMethod"] in AUTH_METHODS
+        if "direction" in when:
+            assert when["direction"] in DIRECTIONS
+
+        assert issue["verdict"] in VERDICTS
+        assert issue["message"].strip()
+        assert issue["remediation"].strip()
+        # Whether it has been seen in a real case, versus derived. The output
+        # must never imply a frequency nobody has measured.
+        assert isinstance(issue["observed"], bool)
+        assert issue["provenance"].strip()

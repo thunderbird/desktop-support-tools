@@ -266,6 +266,34 @@ that team rather than papering over in this tool.
   natural cross-link, and those records are the *reason* an account's settings
   look the way they do.
 
+## The known-bad-config catalogue
+
+`knownIssues` in `settings.json`. It answers the third of the four questions —
+*is this a known bad config?* — as opposed to merely "not what we expected".
+
+Entries fire **alongside** the generic server mismatch, not instead of it. The
+mismatch says what the settings should be; the catalogue entry says what is
+specifically wrong with what they are. That is the difference between a
+volunteer copying values across and a volunteer understanding the problem.
+
+The most valuable entries are the ones that fire when *provider detection
+cannot*. A guessed hostname (`imap.thundermail.com`) matches no provider, so
+without a catalogue entry the account reports "not checked" — the least useful
+possible answer for someone who has simply typed the wrong server name.
+
+`rules` and `knownIssues` share one matcher, documented in `$matcherComment`.
+It deliberately has **no regular expressions**: two implementations evaluate it,
+and Python and JavaScript regex flavours differ in ways that would surface as a
+wrong verdict rather than as a failing test. `hostSuffix` and `hostNotOneOf`
+cover what is actually needed.
+
+**`observed` records whether anyone has really met the configuration**, as
+opposed to it being derived from a specification. Every entry is currently
+`false`: they are structural certainties — 465 with STARTTLS cannot connect,
+whoever tries it — but nobody has counted how often they occur. Never let output
+imply a frequency that has not been measured, and flip the flag as real cases
+arrive.
+
 ## Stale and deleted accounts
 
 A dump can contain accounts the user no longer uses, and **nothing in it marks an

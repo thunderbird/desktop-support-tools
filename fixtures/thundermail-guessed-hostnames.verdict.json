@@ -1,0 +1,64 @@
+{
+  "input": {
+    "kind": "fragment",
+    "privateDataShown": false
+  },
+  "app": {},
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": null,
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap imap.thundermail.com:993",
+          "checks": [
+            {
+              "check": "provider",
+              "outcome": "unknown",
+              "message": "No expected settings are catalogued for imap.thundermail.com. Covered so far: Thundermail."
+            },
+            {
+              "check": "knownIssue",
+              "issue": "guessed-thundermail-hostname",
+              "outcome": "fail",
+              "message": "Thundermail uses one server name for everything: mail.thundermail.com. There is no separate imap., smtp. or pop. host, so a name like this will not resolve.",
+              "remediation": "Set Server Name to mail.thundermail.com, for both incoming and outgoing mail.",
+              "provenance": "pulumi/config.prod.yaml in thunderbird/thunderbird-accounts and the published SRV records both point at the single host mail.thundermail.com. Derived from configuration, not from an observed support case.",
+              "observed": false
+            }
+          ],
+          "outcome": "fail"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp smtp.thundermail.com:587",
+          "checks": [
+            {
+              "check": "provider",
+              "outcome": "unknown",
+              "message": "No expected settings are catalogued for smtp.thundermail.com. Covered so far: Thundermail."
+            },
+            {
+              "check": "knownIssue",
+              "issue": "guessed-thundermail-hostname",
+              "outcome": "fail",
+              "message": "Thundermail uses one server name for everything: mail.thundermail.com. There is no separate imap., smtp. or pop. host, so a name like this will not resolve.",
+              "remediation": "Set Server Name to mail.thundermail.com, for both incoming and outgoing mail.",
+              "provenance": "pulumi/config.prod.yaml in thunderbird/thunderbird-accounts and the published SRV records both point at the single host mail.thundermail.com. Derived from configuration, not from an observed support case.",
+              "observed": false
+            }
+          ],
+          "outcome": "fail"
+        }
+      ],
+      "notes": [],
+      "label": "imap imap.thundermail.com:993",
+      "outcome": "fail"
+    }
+  ],
+  "warnings": []
+}

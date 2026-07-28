@@ -45,8 +45,6 @@
     ],
     "verified": true,
     "$unverified": [
-      "trySTARTTLS has no dropdown entry of its own; labelling it STARTTLS is",
-      "an inference from the value it replaced.",
       "What the '+ Add Account' button opens -- a menu of account types, or",
       "the setup wizard directly -- was not observed, so the pop3 remediation",
       "stops at naming the button."
@@ -97,16 +95,28 @@
       "authMethod": "Authentication method"
     },
 
-    "socketTypeLabels": {
+    "socketTypeChoices": {
       "$comment": [
-        "trySTARTTLS has been removed from MailNewsTypes2.idl and the dropdown",
-        "has no separate entry for it, but an old profile can still hold the",
-        "value. Labelling it STARTTLS is an inference, not an observation."
+        "Same shape as authMethodChoices below, and for the same reason: what",
+        "matters is whether a value is *selectable*, not just what it is called.",
+        "",
+        "The Connection security dropdown offers exactly three options, and it",
+        "offers the same three in the incoming and SMTP Server dialogs.",
+        "",
+        "trySTARTTLS is the interesting one. It has been removed from",
+        "MailNewsTypes2.idl and no dropdown entry corresponds to it, but an old",
+        "profile can still hold the value, so the parser must decode it. It is",
+        "recorded here as offered nowhere rather than guessed at: an earlier",
+        "revision labelled it 'STARTTLS', which asserted something about the UI",
+        "that nobody had looked at. What Thunderbird displays for a stored 1 is",
+        "still unknown; the point is that the tool no longer needs to know,",
+        "because there is no version of this that ends in telling someone to",
+        "select trySTARTTLS."
       ],
-      "plain": "None",
-      "trySTARTTLS": "STARTTLS",
-      "alwaysSTARTTLS": "STARTTLS",
-      "SSL": "SSL/TLS"
+      "plain": { "label": "None", "offeredIn": ["incoming", "outgoing"] },
+      "alwaysSTARTTLS": { "label": "STARTTLS", "offeredIn": ["incoming", "outgoing"] },
+      "SSL": { "label": "SSL/TLS", "offeredIn": ["incoming", "outgoing"] },
+      "trySTARTTLS": { "label": null, "offeredIn": [] }
     },
 
     "authMethodChoices": {
@@ -135,6 +145,24 @@
     }
   },
 
+  "$matcherComment": [
+    "'rules' and 'knownIssues' below share one matcher. Every key in a 'when'",
+    "object must hold for the entry to fire, and an absent key matches",
+    "anything. Supported keys:",
+    "",
+    "  protocol      imap | pop3 | jmap | smtp, as the parser reports it",
+    "  direction     incoming | outgoing",
+    "  port          exact integer",
+    "  socketType    exact enum name",
+    "  authMethod    exact enum name",
+    "  hostSuffix    case-insensitive suffix of the hostname",
+    "  hostNotOneOf  list of hostnames that must NOT match, case-insensitive",
+    "",
+    "Deliberately no regular expressions: the matcher is evaluated by both a",
+    "Python and a JavaScript implementation, whose regex flavours differ in",
+    "ways that would be discovered by a wrong verdict rather than by a test."
+  ],
+
   "rules": [
     {
       "id": "cleartext-over-plain-socket",
@@ -150,6 +178,81 @@
       "verdict": "fail",
       "message": "The password is sent unencrypted over an unencrypted connection.",
       "remediation": "Set Connection security to SSL/TLS or STARTTLS, using the port the provider expects for that setting."
+    }
+  ],
+
+  "knownIssues": [
+    {
+      "$comment": [
+        "The catalogue of recognisable bad configurations. It answers the",
+        "third question this tool exists for: is this a known bad config, as",
+        "opposed to merely 'not what we expected'.",
+        "",
+        "These fire *in addition to* the generic server mismatch, not instead",
+        "of it. The mismatch says what the settings should be; a catalogue",
+        "entry says what specifically is wrong with what they are, which is",
+        "the difference between a volunteer copying values across and a",
+        "volunteer understanding the problem.",
+        "",
+        "'observed' records whether we have actually seen the configuration in",
+        "a real support case, as opposed to deriving it. Every entry below is",
+        "false: they are structural certainties -- combinations that cannot",
+        "work, whoever tries them -- but nobody has yet counted how often they",
+        "turn up. Do not let output imply a frequency we have not measured,",
+        "and flip the flag as real cases arrive."
+      ],
+      "id": "implicit-tls-port-with-starttls",
+      "appliesTo": "allProviders",
+      "when": { "port": 465, "socketType": "alwaysSTARTTLS" },
+      "verdict": "fail",
+      "observed": false,
+      "message": "Port 465 with STARTTLS cannot connect. Port 465 expects the connection to be encrypted from the first byte, but STARTTLS begins in the clear and asks to upgrade, so the server never answers in a way Thunderbird understands.",
+      "remediation": "Either set Connection security to SSL/TLS and keep port 465, or keep STARTTLS and change the port to 587. Both are valid; they just have to agree.",
+      "provenance": "RFC 8314 §3: 465 is implicit TLS (submissions), 587 is the STARTTLS submission port. Derived from the specification, not from an observed support case."
+    },
+    {
+      "id": "starttls-port-with-implicit-tls",
+      "appliesTo": "allProviders",
+      "when": { "port": 587, "socketType": "SSL" },
+      "verdict": "fail",
+      "observed": false,
+      "message": "Port 587 with SSL/TLS cannot connect. Port 587 expects a plain connection that is upgraded with STARTTLS, but SSL/TLS starts encrypting immediately, so the two ends never agree.",
+      "remediation": "Either set Connection security to STARTTLS and keep port 587, or keep SSL/TLS and change the port to 465. Both are valid; they just have to agree.",
+      "provenance": "RFC 8314 §3, as above. Derived from the specification, not from an observed support case."
+    },
+    {
+      "id": "imaps-port-without-implicit-tls",
+      "appliesTo": "allProviders",
+      "when": { "protocol": "imap", "port": 993, "socketType": "alwaysSTARTTLS" },
+      "verdict": "fail",
+      "observed": false,
+      "message": "Port 993 with STARTTLS cannot connect. Port 993 is the implicit-TLS IMAP port and expects encryption from the first byte; STARTTLS on IMAP belongs on port 143.",
+      "remediation": "Set Connection security to SSL/TLS, which is what port 993 expects.",
+      "provenance": "RFC 8314 §3: 993 is imaps, 143 is IMAP with STARTTLS. Derived from the specification, not from an observed support case."
+    },
+    {
+      "$comment": [
+        "The most useful entry here, because it fires exactly when provider",
+        "detection cannot. A guessed hostname means no provider matches, so",
+        "the account would otherwise be reported as 'not checked' -- the least",
+        "helpful possible answer to someone who has simply typed the wrong",
+        "server name.",
+        "",
+        "imap./smtp./pop. prefixes are the near-universal convention, which is",
+        "precisely why someone would assume them. Thundermail uses one host",
+        "for everything."
+      ],
+      "id": "guessed-thundermail-hostname",
+      "appliesTo": "allProviders",
+      "when": {
+        "hostSuffix": ".thundermail.com",
+        "hostNotOneOf": ["mail.thundermail.com"]
+      },
+      "verdict": "fail",
+      "observed": false,
+      "message": "Thundermail uses one server name for everything: mail.thundermail.com. There is no separate imap., smtp. or pop. host, so a name like this will not resolve.",
+      "remediation": "Set Server Name to mail.thundermail.com, for both incoming and outgoing mail.",
+      "provenance": "pulumi/config.prod.yaml in thunderbird/thunderbird-accounts and the published SRV records both point at the single host mail.thundermail.com. Derived from configuration, not from an observed support case."
     }
   ],
 

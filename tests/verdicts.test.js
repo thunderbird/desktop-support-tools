@@ -169,3 +169,56 @@ test("the verdict layer does not reintroduce discarded PII", () => {
     assert.ok(!rendered.includes(secret), secret);
   }
 });
+
+test("a known issue explains a mismatch rather than replacing it", () => {
+  // The generic check says what is expected; the catalogue says what is wrong.
+  // 465 with STARTTLS cannot connect at all, which "expected 587/STARTTLS or
+  // 465/SSL" does not convey on its own.
+  const outgoing = verdictFor("thundermail-smtp-465-starttls").accounts[0].servers[1];
+  const kinds = outgoing.checks.map((entry) => entry.check);
+
+  assert.ok(kinds.includes("server"));
+  assert.ok(kinds.includes("knownIssue"));
+
+  const issue = outgoing.checks.find((entry) => entry.check === "knownIssue");
+  assert.equal(issue.issue, "implicit-tls-port-with-starttls");
+  assert.equal(issue.outcome, FAIL);
+  assert.equal(issue.observed, false);
+});
+
+test("the catalogue catches what provider detection cannot", () => {
+  // A guessed hostname defeats provider matching, which is exactly when it
+  // matters: without this the account reports "not checked".
+  const account = verdictFor("thundermail-guessed-hostnames").accounts[0];
+
+  assert.equal(account.provider, null);
+  assert.equal(account.outcome, FAIL);
+
+  for (const server of account.servers) {
+    const issues = server.checks.filter((entry) => entry.check === "knownIssue");
+    assert.deepEqual(
+      issues.map((issue) => issue.issue),
+      ["guessed-thundermail-hostname"],
+    );
+    assert.ok(issues[0].remediation.includes("mail.thundermail.com"));
+  }
+});
+
+test("correct configurations trigger no catalogue entries", () => {
+  // A catalogue that fires on working accounts is worse than no catalogue.
+  for (const name of [
+    "thundermail-correct",
+    "tb153-macos-names-hidden",
+    "tb153-windows-gmail",
+  ]) {
+    for (const account of verdictFor(name).accounts) {
+      for (const server of account.servers) {
+        assert.equal(
+          server.checks.filter((entry) => entry.check === "knownIssue").length,
+          0,
+          name,
+        );
+      }
+    }
+  }
+});

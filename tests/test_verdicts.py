@@ -208,3 +208,48 @@ def test_no_pii_in_verdicts() -> None:
 
     for secret in ("tester@example.com", "tester+lists@example.com", "Work, Personal"):
         assert secret not in rendered
+
+
+def test_known_issue_explains_a_mismatch_rather_than_replacing_it() -> None:
+    """The generic check says what is expected; the catalogue says what is wrong.
+
+    Both are useful, so both appear. 465 with STARTTLS is a combination that
+    cannot connect at all, which "expected 587/STARTTLS or 465/SSL" does not
+    convey on its own.
+    """
+    result = verdict_for("thundermail-smtp-465-starttls")
+    outgoing = result["accounts"][0]["servers"][1]
+    kinds = [entry["check"] for entry in outgoing["checks"]]
+
+    assert "server" in kinds
+    assert "knownIssue" in kinds
+
+    issue = next(e for e in outgoing["checks"] if e["check"] == "knownIssue")
+    assert issue["issue"] == "implicit-tls-port-with-starttls"
+    assert issue["outcome"] == FAIL
+    assert issue["observed"] is False
+
+
+def test_catalogue_catches_what_provider_detection_cannot() -> None:
+    """A guessed hostname defeats provider matching, which is when it matters.
+
+    Without the catalogue this account reports "not checked" -- the least
+    useful possible answer for someone who has typed the wrong server name.
+    """
+    account = verdict_for("thundermail-guessed-hostnames")["accounts"][0]
+
+    assert account["provider"] is None
+    assert account["outcome"] == FAIL
+
+    for server in account["servers"]:
+        issues = [e for e in server["checks"] if e["check"] == "knownIssue"]
+        assert [issue["issue"] for issue in issues] == ["guessed-thundermail-hostname"]
+        assert "mail.thundermail.com" in issues[0]["remediation"]
+
+
+def test_correct_configurations_trigger_no_catalogue_entries() -> None:
+    """A catalogue that fires on working accounts is worse than no catalogue."""
+    for name in ("thundermail-correct", "tb153-macos-names-hidden", "tb153-windows-gmail"):
+        for account in verdict_for(name)["accounts"]:
+            for server in account["servers"]:
+                assert not [e for e in server["checks"] if e["check"] == "knownIssue"], name

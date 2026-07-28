@@ -46,12 +46,26 @@ function worst(outcomes) {
   return result;
 }
 
+/** The dropdown wording for a socketType, or the raw value if it has none.
+ *
+ * trySTARTTLS has no dropdown entry: it was removed from the IDL and
+ * Thunderbird offers no such choice. Falling back to the raw value keeps the
+ * output honest -- describing what the account holds without implying it can
+ * be selected.
+ */
 function socketLabel(settings, value) {
   if (value === null || value === undefined) {
     return null;
   }
-  const label = settings.ui.socketTypeLabels[value];
-  return label === undefined ? value : label;
+  const choice = settings.ui.socketTypeChoices[value];
+  if (choice === undefined) {
+    return value;
+  }
+  return choice.label === null ? value : choice.label;
+}
+
+function isSelectable(choice, direction) {
+  return Boolean(choice) && choice.offeredIn.includes(direction);
 }
 
 function authLabel(settings, value) {
@@ -67,12 +81,13 @@ function authLabel(settings, value) {
  * Never by key, which appears nowhere in Thunderbird's UI, and never by name,
  * which this tool discards.
  */
+function hostPort(host, port) {
+  const where = host || "(server unknown)";
+  return port === null || port === undefined ? where : `${where}:${port}`;
+}
+
 function describeServer(protocol, host, port) {
-  let where = host || "(server unknown)";
-  if (port !== null && port !== undefined) {
-    where = `${where}:${port}`;
-  }
-  return `${protocol || "?"} ${where}`;
+  return `${protocol || "?"} ${hostPort(host, port)}`;
 }
 
 function findProvider(settings, ...hosts) {
@@ -156,6 +171,14 @@ function checkServerSettings(settings, protocolSettings, host, port, socketType)
   }
 
   const preferred = preferredServer(servers);
+
+  // A stored value Thunderbird's dropdown does not offer -- trySTARTTLS from an
+  // old profile -- cannot be described as if the user had chosen it, and cannot
+  // be left as it is either.
+  const choice = settings.ui.socketTypeChoices[socketType];
+  const unofferable =
+    socketType !== null && !isSelectable(choice, protocolSettings.direction);
+
   return {
     check: "server",
     outcome: FAIL,
@@ -163,8 +186,12 @@ function checkServerSettings(settings, protocolSettings, host, port, socketType)
     expected: expectedSummary(settings, servers),
     message:
       `Expected ${expectedSummary(settings, servers)}, ` +
-      `but this account has ${describeServer(null, host, port)} with ` +
-      `${settings.ui.fieldLabels.socketType} ${socketLabel(settings, socketType)}.`,
+      `but this account has ${hostPort(host, port)} with ` +
+      `${settings.ui.fieldLabels.socketType} ${socketLabel(settings, socketType)}.` +
+      (unofferable
+        ? " Thunderbird no longer offers that connection security " +
+          "setting, so it must be changed to one of the three it does."
+        : ""),
     remediation:
       `In ${location}, set ` +
       `${settings.ui.fieldLabels.host} to ${preferred.host}, ` +
@@ -210,26 +237,68 @@ function checkAuthMethod(settings, protocolSettings, authMethod) {
   return result;
 }
 
+/** Evaluate one `when` object. Absent keys match anything.
+ *
+ * See $matcherComment in settings.json for the supported keys and for why none
+ * of them is a regular expression: this has to behave identically to the
+ * Python implementation, and the two regex flavours differ in ways that would
+ * surface as a wrong verdict rather than as a failing test.
+ */
+function matches(when, facts) {
+  const host = (facts.host ?? "").toLowerCase();
+
+  for (const key of ["protocol", "direction", "port", "socketType", "authMethod"]) {
+    if (key in when && when[key] !== facts[key]) {
+      return false;
+    }
+  }
+
+  if ("hostSuffix" in when && !host.endsWith(when.hostSuffix.toLowerCase())) {
+    return false;
+  }
+
+  if ("hostNotOneOf" in when) {
+    if (when.hostNotOneOf.some((excluded) => excluded.toLowerCase() === host)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /** Provider-independent rules, applied even when the provider is unknown. */
-function checkRules(settings, socketType, authMethod) {
-  const fired = [];
-  for (const rule of settings.rules) {
-    const when = rule.when;
-    if ("socketType" in when && when.socketType !== socketType) {
-      continue;
-    }
-    if ("authMethod" in when && when.authMethod !== authMethod) {
-      continue;
-    }
-    fired.push({
+function checkRules(settings, facts) {
+  return settings.rules
+    .filter((rule) => matches(rule.when, facts))
+    .map((rule) => ({
       check: "rule",
       rule: rule.id,
       outcome: rule.verdict,
       message: rule.message,
       remediation: rule.remediation,
-    });
-  }
-  return fired;
+    }));
+}
+
+/** The catalogue: configurations recognisable as specifically broken.
+ *
+ * Fires alongside the generic mismatch rather than instead of it, and is the
+ * only thing that can help when the *hostname* is wrong -- provider detection
+ * has nothing to match on by then.
+ */
+function checkKnownIssues(settings, facts) {
+  return settings.knownIssues
+    .filter((issue) => matches(issue.when, facts))
+    .map((issue) => ({
+      check: "knownIssue",
+      issue: issue.id,
+      outcome: issue.verdict,
+      message: issue.message,
+      remediation: issue.remediation,
+      provenance: issue.provenance,
+      // Whether anyone has actually met this in a support case, as opposed to
+      // it being derived from a specification.
+      observed: issue.observed,
+    }));
 }
 
 function checkOneServer(settings, provider, protocol, record, role) {
@@ -245,6 +314,15 @@ function checkOneServer(settings, provider, protocol, record, role) {
     checks: [],
   };
 
+  const facts = {
+    protocol,
+    direction: role === "outgoing" ? "outgoing" : "incoming",
+    host,
+    port,
+    socketType,
+    authMethod,
+  };
+
   if (provider === null) {
     const known = settings.providers.map((p) => p.displayName).join(", ");
     result.checks.push({
@@ -254,9 +332,12 @@ function checkOneServer(settings, provider, protocol, record, role) {
         `No expected settings are catalogued for ${host || "this server"}. ` +
         `Covered so far: ${known}.`,
     });
-    // Rules are provider-independent and run even here: a cleartext password
-    // over a plain socket is a defect whoever the provider is.
-    result.checks.push(...checkRules(settings, socketType, authMethod));
+    // The catalogue and the rules are provider-independent and run even here.
+    // This is where a guessed hostname gets caught: provider detection has
+    // just failed *because* the name is wrong, so a catalogue entry is the
+    // only thing that can say anything useful.
+    result.checks.push(...checkKnownIssues(settings, facts));
+    result.checks.push(...checkRules(settings, facts));
     result.outcome = worst(result.checks.map((c) => c.outcome)) ?? UNKNOWN;
     return result;
   }
@@ -286,8 +367,10 @@ function checkOneServer(settings, provider, protocol, record, role) {
     result.checks.push(checkAuthMethod(settings, protocolSettings, authMethod));
   }
 
-  // Rules come last so the provider-specific finding leads.
-  result.checks.push(...checkRules(settings, socketType, authMethod));
+  // The catalogue explains a mismatch the check above has already reported, so
+  // it follows it. Rules come last so the provider-specific finding leads.
+  result.checks.push(...checkKnownIssues(settings, facts));
+  result.checks.push(...checkRules(settings, facts));
 
   result.outcome = worst(result.checks.map((c) => c.outcome)) ?? UNKNOWN;
   return result;

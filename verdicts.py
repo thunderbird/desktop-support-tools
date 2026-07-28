@@ -71,9 +71,23 @@ def _worst(outcomes) -> str | None:
 
 
 def _socket_label(settings: dict, value: str | None) -> str | None:
+    """The dropdown wording for a socketType, or the raw value if it has none.
+
+    ``trySTARTTLS`` has no dropdown entry: it was removed from the IDL and
+    Thunderbird offers no such choice. Falling back to the raw value keeps the
+    output honest -- describing what the account holds without implying it can
+    be selected.
+    """
     if value is None:
         return None
-    return settings["ui"]["socketTypeLabels"].get(value, value)
+    choice = settings["ui"]["socketTypeChoices"].get(value)
+    if choice is None:
+        return value
+    return choice["label"] if choice["label"] is not None else value
+
+
+def _is_selectable(choice: dict | None, direction: str) -> bool:
+    return bool(choice) and direction in choice["offeredIn"]
 
 
 def _auth_label(settings: dict, value: str | None) -> str | None:
@@ -85,6 +99,11 @@ def _auth_label(settings: dict, value: str | None) -> str | None:
     return choice["label"]
 
 
+def _host_port(host: str | None, port: int | None) -> str:
+    where = host or "(server unknown)"
+    return f"{where}:{port}" if port is not None else where
+
+
 def _describe_server(protocol: str | None, host: str | None, port: int | None) -> str:
     """Identify a server to a human.
 
@@ -92,10 +111,7 @@ def _describe_server(protocol: str | None, host: str | None, port: int | None) -
     appears nowhere in Thunderbird's UI, and never by name, which this tool
     discards.
     """
-    where = host or "(server unknown)"
-    if port is not None:
-        where = f"{where}:{port}"
-    return f"{protocol or '?'} {where}"
+    return f"{protocol or '?'} {_host_port(host, port)}"
 
 
 def _find_provider(settings: dict, *hosts: str | None) -> dict | None:
@@ -188,6 +204,13 @@ def _check_server_settings(
         }
 
     preferred = _preferred_server(servers)
+
+    # A stored value Thunderbird's dropdown does not offer -- trySTARTTLS from
+    # an old profile -- cannot be described as if the user had chosen it, and
+    # cannot be left as it is either.
+    choice = settings["ui"]["socketTypeChoices"].get(socket_type)
+    unofferable = socket_type is not None and not _is_selectable(choice, direction)
+
     return {
         "check": "server",
         "outcome": FAIL,
@@ -196,9 +219,15 @@ def _check_server_settings(
         "message": (
             f"Expected {_expected_summary(settings, servers)}, "
             f"but this account has "
-            f"{_describe_server(None, host, port)} with "
+            f"{_host_port(host, port)} with "
             f"{settings['ui']['fieldLabels']['socketType']} "
             f"{_socket_label(settings, socket_type)}."
+            + (
+                " Thunderbird no longer offers that connection security "
+                "setting, so it must be changed to one of the three it does."
+                if unofferable
+                else ""
+            )
         ),
         "remediation": (
             f"In {location}, set "
@@ -249,29 +278,73 @@ def _check_auth_method(settings: dict, protocol_settings: dict, auth_method) -> 
     return result
 
 
-def _check_rules(settings: dict, socket_type, auth_method) -> list[dict]:
+def _matches(when: dict, facts: dict) -> bool:
+    """Evaluate one ``when`` object. Absent keys match anything.
+
+    See ``$matcherComment`` in settings.json for the supported keys and for why
+    none of them is a regular expression.
+    """
+    host = (facts.get("host") or "").lower()
+
+    for key in ("protocol", "direction", "port", "socketType", "authMethod"):
+        if key in when and when[key] != facts.get(key):
+            return False
+
+    if "hostSuffix" in when and not host.endswith(when["hostSuffix"].lower()):
+        return False
+
+    if "hostNotOneOf" in when:
+        if host in {excluded.lower() for excluded in when["hostNotOneOf"]}:
+            return False
+
+    return True
+
+
+def _check_rules(settings: dict, facts: dict) -> list[dict]:
     """Provider-independent rules, applied even when the provider is unknown.
 
     A cleartext password over a plain socket is a defect whoever the provider
     is, so this runs for hosts we have no catalogue entry for.
     """
-    fired = []
-    for rule in settings["rules"]:
-        when = rule["when"]
-        if when.get("socketType", socket_type) != socket_type:
-            continue
-        if when.get("authMethod", auth_method) != auth_method:
-            continue
-        fired.append(
-            {
-                "check": "rule",
-                "rule": rule["id"],
-                "outcome": rule["verdict"],
-                "message": rule["message"],
-                "remediation": rule["remediation"],
-            }
-        )
-    return fired
+    return [
+        {
+            "check": "rule",
+            "rule": rule["id"],
+            "outcome": rule["verdict"],
+            "message": rule["message"],
+            "remediation": rule["remediation"],
+        }
+        for rule in settings["rules"]
+        if _matches(rule["when"], facts)
+    ]
+
+
+def _check_known_issues(settings: dict, facts: dict) -> list[dict]:
+    """The catalogue: configurations recognisable as specifically broken.
+
+    These answer "is this a known bad config?" and fire alongside the generic
+    mismatch rather than instead of it -- the mismatch says what the settings
+    should be, the catalogue entry says what is wrong with what they are.
+
+    A catalogue entry is also the only thing that can help when the *hostname*
+    is wrong, since provider detection has nothing to match on by then.
+    """
+    return [
+        {
+            "check": "knownIssue",
+            "issue": issue["id"],
+            "outcome": issue["verdict"],
+            "message": issue["message"],
+            "remediation": issue["remediation"],
+            "provenance": issue["provenance"],
+            # Whether anyone has actually met this in a support case, as
+            # opposed to it being derived from a specification. The UI says so,
+            # rather than implying a frequency nobody has measured.
+            "observed": issue["observed"],
+        }
+        for issue in settings["knownIssues"]
+        if _matches(issue["when"], facts)
+    ]
 
 
 def _check_one_server(
@@ -290,6 +363,15 @@ def _check_one_server(
         "checks": [],
     }
 
+    facts = {
+        "protocol": protocol,
+        "direction": "outgoing" if role == "outgoing" else "incoming",
+        "host": host,
+        "port": port,
+        "socketType": socket_type,
+        "authMethod": auth_method,
+    }
+
     if provider is None:
         known = ", ".join(p["displayName"] for p in settings["providers"])
         result["checks"].append(
@@ -302,9 +384,12 @@ def _check_one_server(
                 ),
             }
         )
-        # Rules are provider-independent and run even here: a cleartext
-        # password over a plain socket is a defect whoever the provider is.
-        result["checks"].extend(_check_rules(settings, socket_type, auth_method))
+        # The catalogue and the rules are provider-independent and run even
+        # here. This is where a guessed hostname gets caught: provider
+        # detection has just failed *because* the name is wrong, so a
+        # catalogue entry is the only thing that can say anything useful.
+        result["checks"].extend(_check_known_issues(settings, facts))
+        result["checks"].extend(_check_rules(settings, facts))
         result["outcome"] = _worst(c["outcome"] for c in result["checks"]) or UNKNOWN
         return result
 
@@ -343,10 +428,11 @@ def _check_one_server(
             _check_auth_method(settings, protocol_settings, auth_method)
         )
 
-    # Rules come last so the provider-specific finding leads: "POP isn't
-    # supported" is the headline, "and the password is in the clear" the
-    # supporting detail, not the other way round.
-    result["checks"].extend(_check_rules(settings, socket_type, auth_method))
+    # The catalogue explains a mismatch the check above has already reported,
+    # so it follows it. Rules come last: "POP isn't supported" is the headline
+    # and "the password is in the clear" the supporting detail, not the reverse.
+    result["checks"].extend(_check_known_issues(settings, facts))
+    result["checks"].extend(_check_rules(settings, facts))
 
     result["outcome"] = _worst(c["outcome"] for c in result["checks"]) or UNKNOWN
     return result

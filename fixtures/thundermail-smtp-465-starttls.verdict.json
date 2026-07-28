@@ -1,0 +1,93 @@
+{
+  "input": {
+    "kind": "fragment",
+    "privateDataShown": false
+  },
+  "app": {},
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": {
+        "id": "thundermail",
+        "displayName": "Thundermail",
+        "verified": true
+      },
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap mail.thundermail.com:993",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 993,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _imaps._tcp SRV record, the Thundermail UI and pulumi/config.prod.yaml all agree."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:465",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "fail",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 465,
+                "socketType": "alwaysSTARTTLS",
+                "socketTypeLabel": "STARTTLS"
+              },
+              "expected": "mail.thundermail.com:587 with Connection security STARTTLS — or — mail.thundermail.com:465 with Connection security SSL/TLS",
+              "message": "Expected mail.thundermail.com:587 with Connection security STARTTLS — or — mail.thundermail.com:465 with Connection security SSL/TLS, but this account has mail.thundermail.com:465 with Connection security STARTTLS.",
+              "remediation": "In Thunderbird app menu ☰ → Account Settings → click the account's own row in the left sidebar, not one of the entries beneath it → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog), set Server Name to mail.thundermail.com, Port to 465, and Connection security to SSL/TLS.",
+              "provenance": "The Thundermail web UI's manual setup instructions."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            },
+            {
+              "check": "knownIssue",
+              "issue": "implicit-tls-port-with-starttls",
+              "outcome": "fail",
+              "message": "Port 465 with STARTTLS cannot connect. Port 465 expects the connection to be encrypted from the first byte, but STARTTLS begins in the clear and asks to upgrade, so the server never answers in a way Thunderbird understands.",
+              "remediation": "Either set Connection security to SSL/TLS and keep port 465, or keep STARTTLS and change the port to 587. Both are valid; they just have to agree.",
+              "provenance": "RFC 8314 §3: 465 is implicit TLS (submissions), 587 is the STARTTLS submission port. Derived from the specification, not from an observed support case.",
+              "observed": false
+            }
+          ],
+          "outcome": "fail"
+        }
+      ],
+      "notes": [],
+      "label": "imap mail.thundermail.com:993",
+      "outcome": "fail"
+    }
+  ],
+  "warnings": []
+}
