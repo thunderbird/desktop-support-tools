@@ -274,3 +274,27 @@ a {
 .scope code {
   font-size: 0.9em;
 }
+
+/* Collapsed accounts: the ones this page cannot check. Still listed, still
+ * expandable, but folded so they do not bury the account the reader came for.
+ * The summary carries the verdict, so nothing has to be opened to see it. */
+details.account {
+  padding: 0.6rem 1rem;
+}
+
+details.account > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.summary-title {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+details.account[open] > summary {
+  margin-bottom: 0.5rem;
+}

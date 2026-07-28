@@ -120,24 +120,41 @@ function renderServer(server) {
   return section;
 }
 
-function renderAccount(account) {
-  const article = element("article", `account account-${account.outcome}`);
+/** Render one account, either open or collapsed behind a summary.
+ *
+ * Collapsed is for accounts this page cannot check. They are still listed and
+ * still expandable -- hiding them outright would be a lie about what the dump
+ * contained, and "several accounts on one host" is sometimes the whole answer.
+ * But an unexpandable wall of "Not checked" buries the account the reader came
+ * for, so those fold away with their verdict visible on the summary line.
+ */
+function renderAccount(account, collapsed = false) {
+  const article = element(
+    collapsed ? "details" : "article",
+    `account account-${account.outcome}`,
+  );
 
-  const heading = element("h2");
-  heading.append(document.createTextNode(`Account ${account.position} — ${account.label}`));
-  article.append(heading);
+  const headingText = `Account ${account.position} — ${account.label}`;
 
-  const meta = element("p", "account-meta");
-  meta.append(badge(account.outcome));
-  if (account.provider) {
-    meta.append(element("span", "provider", account.provider.displayName));
-    if (!account.provider.verified) {
-      // dns-scripts marks providers whose behaviour was inferred rather than
-      // confirmed, and says so in the output. Same habit here.
-      meta.append(element("span", "unverified", "unverified provider"));
+  if (collapsed) {
+    const summary = element("summary");
+    summary.append(element("span", "summary-title", headingText), badge(account.outcome));
+    article.append(summary);
+  } else {
+    article.append(element("h2", null, headingText));
+
+    const meta = element("p", "account-meta");
+    meta.append(badge(account.outcome));
+    if (account.provider) {
+      meta.append(element("span", "provider", account.provider.displayName));
+      if (!account.provider.verified) {
+        // dns-scripts marks providers whose behaviour was inferred rather than
+        // confirmed, and says so in the output. Same habit here.
+        meta.append(element("span", "unverified", "unverified provider"));
+      }
     }
+    article.append(meta);
   }
-  article.append(meta);
 
   for (const note of account.notes) {
     article.append(element("p", "note", note));
@@ -242,8 +259,27 @@ function render() {
     );
   }
 
-  for (const account of result.accounts) {
-    results.append(renderAccount(account));
+  // Accounts this page can actually judge come first and stay open; the rest
+  // follow, collapsed. Their "Account N" numbers are their positions in the
+  // dump and do not change -- that number is how the picker refers to them,
+  // and how two accounts on the same host are told apart, so renumbering them
+  // to match this order would break the one handle the reader has.
+  const checkable = result.accounts.filter((account) => account.provider !== null);
+  const rest = result.accounts.filter((account) => account.provider === null);
+
+  if (checkable.length === 0) {
+    // Nothing to promote, so collapsing everything would leave a page that
+    // looks empty. The warning above already explains why none were checked.
+    for (const account of result.accounts) {
+      results.append(renderAccount(account));
+    }
+  } else {
+    for (const account of checkable) {
+      results.append(renderAccount(account));
+    }
+    for (const account of rest) {
+      results.append(renderAccount(account, true));
+    }
   }
 
   if (result.accounts.length > 1) {
