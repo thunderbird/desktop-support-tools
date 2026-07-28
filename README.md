@@ -17,9 +17,9 @@ uv sync
 
 ## parse_troubleshooting.py
 
-Turns Thunderbird's Troubleshooting Information (**Help → Troubleshooting
-Information → Copy text to clipboard**) into structured JSON describing each mail
-account's incoming and outgoing server settings.
+Turns Thunderbird's Troubleshooting Information (**Thunderbird app menu ☰ → Help
+→ Troubleshooting Information → Copy text to clipboard**) into structured JSON
+describing each mail account's incoming and outgoing server settings.
 
 ```sh
 uv run parse_troubleshooting.py fixtures/thundermail-correct.txt
