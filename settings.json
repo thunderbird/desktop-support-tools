@@ -55,7 +55,20 @@
     "locations": {
       "$comment": [
         "Keyed by the 'direction' on each protocol below, so the engine can",
-        "name the right dialog without hard-coding either string."
+        "name the right dialog without hard-coding either string.",
+        "",
+        "DO NOT route people through the sidebar's 'Outgoing Server' entry,",
+        "even though it reaches the same SMTP Server dialog. That page is a",
+        "global list of every SMTP server across all accounts, and the rows",
+        "carry only a description and a hostname: a real profile shows three",
+        "consecutive rows all reading 'Thundermail - mail.thundermail.com',",
+        "with nothing to distinguish them. Sending someone there to fix one",
+        "account invites them to edit a different one. Reaching the dialog",
+        "from the account's own page cannot pick the wrong server.",
+        "",
+        "This is the same problem this tool has, for the same reason, and it",
+        "is why verdicts identify accounts by protocol/host/port and dump",
+        "order: on this host, the name tells you nothing."
       ],
       "incoming": "Thunderbird app menu ☰ → Account Settings → the account's Server Settings in the left sidebar",
       "outgoing": "Thunderbird app menu ☰ → Account Settings → click the account's own row in the left sidebar, not one of the entries beneath it → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog)"
@@ -71,7 +84,12 @@
     "fieldLabels": {
       "$comment": [
         "The SMTP Server dialog additionally has a free-text 'Description'",
-        "field, which no verdict depends on."
+        "field, which no verdict depends on.",
+        "",
+        "These are the editable dialogs' labels. The read-only 'Details of",
+        "selected server' pane on the Outgoing Server page capitalises one of",
+        "them differently -- 'Connection Security' -- so do not 'correct' the",
+        "lower-case s here to match a screenshot of that pane."
       ],
       "host": "Server Name",
       "port": "Port",
