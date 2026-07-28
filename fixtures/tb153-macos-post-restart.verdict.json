@@ -1,0 +1,137 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": true
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "153.0",
+    "buildId": "20260717002111",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Thunderbird/153.0",
+    "os": "Darwin 25.5.0 Darwin Kernel Version 25.5.0: Tue Jun  9 22:28:24 PDT 2026; root:xnu-12377.121.10~1/RELEASE_ARM64_T6020"
+  },
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": null,
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap imap.gmail.com:993",
+          "checks": [
+            {
+              "check": "provider",
+              "outcome": "unknown",
+              "message": "No expected settings are catalogued for imap.gmail.com. Covered so far: Thundermail."
+            }
+          ],
+          "outcome": "unknown"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp smtp.gmail.com:465",
+          "checks": [
+            {
+              "check": "provider",
+              "outcome": "unknown",
+              "message": "No expected settings are catalogued for smtp.gmail.com. Covered so far: Thundermail."
+            }
+          ],
+          "outcome": "unknown"
+        }
+      ],
+      "notes": [],
+      "label": "imap imap.gmail.com:993",
+      "outcome": "unknown"
+    },
+    {
+      "position": 2,
+      "key": "account2",
+      "provider": null,
+      "servers": [],
+      "notes": [
+        "Local Folders is stored on this computer and has no server settings to check."
+      ],
+      "outcome": "notApplicable",
+      "label": "none Local Folders"
+    },
+    {
+      "position": 3,
+      "key": "account6",
+      "provider": {
+        "id": "thundermail",
+        "displayName": "Thundermail",
+        "verified": true
+      },
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap mail.thundermail.com:993",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 993,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _imaps._tcp SRV record, the Thundermail UI and pulumi/config.prod.yaml all agree."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:587",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 587,
+                "socketType": "alwaysSTARTTLS",
+                "socketTypeLabel": "STARTTLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _submission._tcp SRV record (RFC 6186) -- what Thunderbird autoconfig produces, since Thundermail has no ISPDB entry."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        }
+      ],
+      "notes": [],
+      "label": "imap mail.thundermail.com:993",
+      "outcome": "pass"
+    }
+  ],
+  "warnings": [
+    "input contained private data (account or identity names); it was discarded and is not included in this result"
+  ]
+}

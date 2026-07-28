@@ -1,0 +1,82 @@
+{
+  "input": {
+    "kind": "fragment",
+    "privateDataShown": false
+  },
+  "app": {},
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": {
+        "id": "thundermail",
+        "displayName": "Thundermail",
+        "verified": true
+      },
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap mail.thundermail.com:993",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 993,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _imaps._tcp SRV record, the Thundermail UI and pulumi/config.prod.yaml all agree."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:465",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 465,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The Thundermail web UI's manual setup instructions."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        }
+      ],
+      "notes": [],
+      "label": "imap mail.thundermail.com:993",
+      "outcome": "pass"
+    }
+  ],
+  "warnings": []
+}

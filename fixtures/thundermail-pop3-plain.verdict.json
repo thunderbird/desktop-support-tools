@@ -1,0 +1,76 @@
+{
+  "input": {
+    "kind": "fragment",
+    "privateDataShown": false
+  },
+  "app": {},
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": {
+        "id": "thundermail",
+        "displayName": "Thundermail",
+        "verified": true
+      },
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "pop3",
+          "label": "pop3 mail.thundermail.com:110",
+          "checks": [
+            {
+              "check": "protocol",
+              "outcome": "fail",
+              "message": "POP isn't supported — use IMAP.",
+              "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP, using the + Add Account button at the top of the left sidebar in Account Settings. Autoconfiguration should set mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2 for incoming mail, and mail.thundermail.com:587 with STARTTLS for outgoing.",
+              "provenance": "No POP host or port exists in production config, and the Thundermail UI has no POP tab."
+            },
+            {
+              "check": "rule",
+              "rule": "cleartext-over-plain-socket",
+              "outcome": "fail",
+              "message": "The password is sent unencrypted over an unencrypted connection.",
+              "remediation": "Set Connection security to SSL/TLS or STARTTLS, using the port the provider expects for that setting."
+            }
+          ],
+          "outcome": "fail"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:587",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 587,
+                "socketType": "alwaysSTARTTLS",
+                "socketTypeLabel": "STARTTLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _submission._tcp SRV record (RFC 6186) -- what Thunderbird autoconfig produces, since Thundermail has no ISPDB entry."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "warn",
+              "actual": {
+                "authMethod": "passwordCleartext",
+                "authMethodLabel": "Normal password"
+              },
+              "message": "An app password works, but OAuth2 is the default and is recommended. Not a reason to change a working account.",
+              "remediation": "In Thunderbird app menu ☰ → Account Settings → click the account's own row in the left sidebar, not one of the entries beneath it → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog), set Authentication method to OAuth2."
+            }
+          ],
+          "outcome": "warn"
+        }
+      ],
+      "notes": [],
+      "label": "pop3 mail.thundermail.com:110",
+      "outcome": "fail"
+    }
+  ],
+  "warnings": []
+}

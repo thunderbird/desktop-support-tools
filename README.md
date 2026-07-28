@@ -43,6 +43,43 @@ keeps.
 
 Nothing is uploaded and nothing is stored.
 
+## check_settings.py
+
+Checks those account settings against the provider's expected values and
+reports what to change.
+
+```sh
+uv run check_settings.py fixtures/thundermail-correct.txt
+pbpaste | uv run check_settings.py
+pbpaste | uv run check_settings.py --account account3 --json
+```
+
+Verdicts are **per account**, never rolled up into one answer, because a dump
+routinely lists accounts you no longer use and nothing in it marks them as dead.
+Each account gets one of:
+
+| | |
+|---|---|
+| `PASS` | Settings are correct. |
+| `WARN` | Settings work, but are not what the provider recommends — an app password instead of OAuth2, say. Not a reason to change a working account. |
+| `FAIL` | Settings are wrong, or cannot work. |
+| `?` | No expected settings are catalogued for that server yet, or Thunderbird could not read the account. |
+| `-` | Nothing to check, such as Local Folders. |
+
+A failing account does **not** set the exit status — otherwise one abandoned
+mailbox would fail the whole run. As with `parse_troubleshooting.py`, only
+finding no accounts at all exits non-zero.
+
+Thundermail is the only provider catalogued so far. Anything else is reported as
+unchecked rather than as correct.
+
+### Where the expected values come from
+
+`settings.json` at the repo root, read by both this script and (in time) the web
+page, so a provider is added once rather than twice. Each expected value carries
+its provenance, which the output quotes: run the command above and the `why:`
+lines are the reason the value is what it is.
+
 ## Tests
 
 ```sh

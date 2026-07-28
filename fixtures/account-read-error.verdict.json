@@ -1,0 +1,115 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": false
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "140.2.1",
+    "buildId": "20260701093000",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Thunderbird/140.2.1",
+    "os": "Linux 6.11.0-26-generic"
+  },
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": {
+        "id": "thundermail",
+        "displayName": "Thundermail",
+        "verified": true
+      },
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap mail.thundermail.com:993",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 993,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _imaps._tcp SRV record, the Thundermail UI and pulumi/config.prod.yaml all agree."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:465",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 465,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The Thundermail web UI's manual setup instructions."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        }
+      ],
+      "notes": [],
+      "label": "imap mail.thundermail.com:993",
+      "outcome": "pass"
+    },
+    {
+      "position": 2,
+      "key": "account3",
+      "provider": null,
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": null,
+          "label": "incoming server unreadable",
+          "outcome": "unknown",
+          "checks": [
+            {
+              "check": "account",
+              "outcome": "unknown",
+              "message": "Thunderbird could not read this account's incoming server, so there are no settings to check. That is a fault in the account itself rather than in its configuration.",
+              "remediation": "Quit Thunderbird, reopen it, and copy the troubleshooting information again. If the account is still listed like this, it is damaged and worth removing and adding again."
+            }
+          ]
+        }
+      ],
+      "notes": [
+        "Thunderbird could not read this account's incoming server",
+        "unrecognised socketType: 'undefined'"
+      ],
+      "label": "incoming server unreadable",
+      "outcome": "unknown"
+    }
+  ],
+  "warnings": []
+}

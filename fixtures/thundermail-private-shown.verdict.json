@@ -1,0 +1,135 @@
+{
+  "input": {
+    "kind": "full",
+    "privateDataShown": true
+  },
+  "app": {
+    "name": "Thunderbird",
+    "version": "141.0",
+    "buildId": "20260715120000",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Thunderbird/141.0",
+    "os": "Windows_NT 10.0 26100"
+  },
+  "accounts": [
+    {
+      "position": 1,
+      "key": "account1",
+      "provider": {
+        "id": "thundermail",
+        "displayName": "Thundermail",
+        "verified": true
+      },
+      "servers": [
+        {
+          "role": "incoming",
+          "protocol": "imap",
+          "label": "imap mail.thundermail.com:993",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 993,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The _imaps._tcp SRV record, the Thundermail UI and pulumi/config.prod.yaml all agree."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass"
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:465",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 465,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The Thundermail web UI's manual setup instructions."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "pass",
+              "actual": {
+                "authMethod": "OAuth2",
+                "authMethodLabel": "OAuth2"
+              },
+              "message": "The default and recommended authentication for Thundermail."
+            }
+          ],
+          "outcome": "pass",
+          "ordinal": 1
+        },
+        {
+          "role": "outgoing",
+          "protocol": "smtp",
+          "label": "smtp mail.thundermail.com:465",
+          "checks": [
+            {
+              "check": "server",
+              "outcome": "pass",
+              "actual": {
+                "host": "mail.thundermail.com",
+                "port": 465,
+                "socketType": "SSL",
+                "socketTypeLabel": "SSL/TLS"
+              },
+              "message": "Server, port and connection security are correct.",
+              "provenance": "The Thundermail web UI's manual setup instructions."
+            },
+            {
+              "check": "authMethod",
+              "outcome": "warn",
+              "actual": {
+                "authMethod": "passwordCleartext",
+                "authMethodLabel": "Normal password"
+              },
+              "message": "An app password works, but OAuth2 is the default and is recommended. Not a reason to change a working account.",
+              "remediation": "In Thunderbird app menu ☰ → Account Settings → click the account's own row in the left sidebar, not one of the entries beneath it → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog), set Authentication method to OAuth2."
+            }
+          ],
+          "outcome": "warn",
+          "ordinal": 2
+        }
+      ],
+      "notes": [
+        "This account has 2 outgoing servers, listed in the order Thunderbird reports them. They are identified by number because the identity names that would distinguish them are private, and this tool discards them."
+      ],
+      "label": "imap mail.thundermail.com:993",
+      "outcome": "warn"
+    },
+    {
+      "position": 2,
+      "key": "account2",
+      "provider": null,
+      "servers": [],
+      "notes": [
+        "Local Folders is stored on this computer and has no server settings to check."
+      ],
+      "outcome": "notApplicable",
+      "label": "none Local Folders"
+    }
+  ],
+  "warnings": [
+    "input contained private data (account or identity names); it was discarded and is not included in this result"
+  ]
+}
