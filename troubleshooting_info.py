@@ -238,10 +238,11 @@ def parse(text: str) -> dict:
     Accounts lines on their own, since support staff often ask for -- and users
     often send -- only the relevant fragment.
     """
-    # Windows builds copy with CRLF line endings -- verified against a real
-    # Windows 11 / TB 153 clipboard capture (468 CRLF, no lone LF). Whether
-    # createTextForElement writes them or Gecko's widget layer converts on the
-    # way to the clipboard is undetermined, and does not matter here.
+    # Windows builds copy with CRLF line endings: createTextForElement in
+    # export.js runs text.replace(/\n/g, "\r\n") over the whole document behind
+    # a Windows-only check. Verified against a real Windows 11 / TB 153
+    # clipboard capture -- 468 CRLF, no lone LF, including the newlines inside
+    # multi-line Graphics values, as a whole-document substitution implies.
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
     accounts: list[dict] = []

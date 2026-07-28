@@ -101,15 +101,24 @@ The string `INCOMING` appears nowhere in it — those prefixes exist only in
 It does *not* solve everything: `hostDetails` is still one cell
 (`(imap) imap.gmail.com:993`), needing the same protocol/host/port regex.
 
-**This is knowledge, not a plan.** Text stays the contract, for three reasons:
-the CLI gets text only (`pbpaste` has no equivalent path), forwarded dumps —
-SUMO replies, Bugzilla comments, plain-text mail, hand-copied fragments — carry
-no HTML flavour, and a parser only one front-end can exercise is precisely the
-drift `fixtures/` exists to prevent. The defensible use, if we ever want it, is
-as a webapp-only *cross-check*: a `paste` event already exposes
-`clipboardData.getData("text/html")` for free, so parse the text as always and
-flag a mismatch if HTML happens to be present. If that is ever built, parse it
-with `DOMParser` and never assign it into the live document.
+Both flavours are registered deliberately — `getClipboardTransferable()` calls
+`addDataFlavor("text/html")` and `addDataFlavor("text/plain")` — so which one a
+dump arrives in is decided by where the user pasted it, not by chance. A plain
+`<textarea>`, including the webapp's paste box, takes `text/plain`. A rich-text
+target takes the table, and the "Send via email" button sends HTML. **So a dump
+forwarded through rich-text mail can reach support in a structurally different
+shape, one that never passed through `getAccountsText()` at all.** Do not assume
+a paste is the text format; a table flattened back to text does not carry the
+`INCOMING:` prefixes the parser keys on.
+
+Text remains the contract for the CLI and for `fixtures/`, because `pbpaste` has
+no equivalent path and a parser only one front-end can exercise is precisely the
+drift `fixtures/` exists to prevent. But the HTML shape is a real input for
+Bucket 3, not merely a curiosity: the webapp gets it for free from a `paste`
+event via `clipboardData.getData("text/html")`. When that is built, parse it with
+`DOMParser` and never assign it into the live document.
+`fixtures/tb153-windows-accounts.html` is a captured sample to build against; it
+has no `.expected.json` yet because nothing parses it.
 
 The numbers `3` and `10` in that markup are worth noting separately: the DOM
 carries raw integers too, so the `gSocketTypes` fallback described below is not
@@ -177,11 +186,17 @@ normalise): 468 CRLF and **zero** lone LF. That includes the newlines *inside*
 multi-line Graphics values such as the WebGL WSI blobs, so a real dump is never
 mixed-ending — the parser handles mixed input anyway, but no fixture needs to.
 
-What that measurement cannot tell you is *who* writes the CRLF. Windows'
-`CF_UNICODETEXT` is CRLF by convention and Gecko's widget layer converts line
-breaks on the way to the clipboard, so the result is equally consistent with
-`createTextForElement` emitting plain LF. Don't attribute it to `export.js`.
-For our purposes the distinction is moot: what a support person pastes is CRLF.
+`export.js` is what writes them, explicitly and Windows-only, in
+`createTextForElement()`:
+
+```js
+if ("@mozilla.org/windows-registry-key;1" in Cc) {
+  text = text.replace(/\n/g, "\r\n");
+}
+```
+
+That is a whole-document substitution, which is why even newlines *inside* a
+single multi-line value come out CRLF, exactly as the capture shows.
 
 ## Why the no-PII rule is free
 
