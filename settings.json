@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "$comment": [
+    "Single source of truth for expected provider settings, read by BOTH the",
+    "Python CLI and the JavaScript webapp -- the way dns-scripts uses",
+    "records.json. Add a provider or a field once and both front-ends pick it",
+    "up. Never hard-code an expected value in either front-end.",
+    "",
+    "Enum spellings for socketType and authMethod must match the vocabularies",
+    "in troubleshooting_info.py exactly, because they are compared against",
+    "parser output. tests/test_settings.py asserts that, so a typo here fails",
+    "the suite rather than silently never matching.",
+    "",
+    "CONVENTION: any key beginning with '$' is documentation. Both front-ends",
+    "must ignore them -- JSON has no comment syntax, and the reasoning behind",
+    "these values is worth keeping next to the values themselves."
+  ],
+
+  "verdicts": {
+    "$comment": [
+      "Three levels, not two. Reporting a working app-password account as",
+      "broken sends support down the wrong path, so 'the settings work but are",
+      "not what we recommend' needs its own level."
+    ],
+    "pass": "Settings are correct.",
+    "warn": "Settings work, but are not what the provider recommends.",
+    "fail": "Settings are wrong, or cannot work."
+  },
+
+  "ui": {
+    "$comment": [
+      "Thunderbird Account Settings labels, so remediation can name the exact",
+      "field and the exact value to select, following the dns-scripts style.",
+      "",
+      "Transcribed from TB 153 on 2026-07-27: screenshots of both",
+      "Authentication method dropdowns, and both menu paths. The Connection",
+      "security dropdown was confirmed to offer the same three options -- None,",
+      "STARTTLS, SSL/TLS -- in both the incoming and SMTP Server dialogs.",
+      "",
+      "THE TWO DROPDOWNS ARE NOT THE SAME LIST. Incoming offers 'TLS",
+      "Certificate' and has no 'No authentication'; the SMTP Server dialog",
+      "offers 'No authentication' and has no 'TLS Certificate'. So an",
+      "authMethod is selectable *in a direction*, not in general, and",
+      "remediation must be told which dialog it is talking about."
+    ],
+    "verified": true,
+    "$unverified": [
+      "trySTARTTLS has no dropdown entry of its own; labelling it STARTTLS is",
+      "an inference from the value it replaced.",
+      "The 'Account Actions → Add Mail Account…' path quoted in the pop3",
+      "remediation below."
+    ],
+
+    "locations": {
+      "$comment": [
+        "Keyed by the 'direction' on each protocol below, so the engine can",
+        "name the right dialog without hard-coding either string."
+      ],
+      "incoming": "Thunderbird app menu ☰ → Account Settings → select the account in the left sidebar → Server Settings",
+      "outgoing": "Thunderbird app menu ☰ → Account Settings → select the account in the left sidebar → Outgoing Server, second-to-last row at the bottom right → Edit outgoing server… (opens the SMTP Server dialog)"
+    },
+    "$accountSelectionComment": [
+      "The sidebar lists accounts by email address, which this tool discards",
+      "and never has. So remediation must say 'select the account for the",
+      "mailbox you are fixing' and identify it by protocol/host/port and dump",
+      "order, exactly as CLAUDE.md requires -- never fill an address into",
+      "these strings, and never ask the user for one to put there."
+    ],
+
+    "fieldLabels": {
+      "$comment": [
+        "The SMTP Server dialog additionally has a free-text 'Description'",
+        "field, which no verdict depends on."
+      ],
+      "host": "Server Name",
+      "port": "Port",
+      "socketType": "Connection security",
+      "authMethod": "Authentication method"
+    },
+
+    "socketTypeLabels": {
+      "$comment": [
+        "trySTARTTLS has been removed from MailNewsTypes2.idl and the dropdown",
+        "has no separate entry for it, but an old profile can still hold the",
+        "value. Labelling it STARTTLS is an inference, not an observation."
+      ],
+      "plain": "None",
+      "trySTARTTLS": "STARTTLS",
+      "alwaysSTARTTLS": "STARTTLS",
+      "SSL": "SSL/TLS"
+    },
+
+    "authMethodChoices": {
+      "$comment": [
+        "'offeredIn' lists the dialogs whose dropdown contains this choice, in",
+        "the order the menus list them. An empty list with a null label means",
+        "the value exists in nsMsgAuthMethod but Thunderbird offers no such",
+        "choice anywhere: an account holding one got it from an old profile or",
+        "an autoconfig file, and the fix is to pick a supported method rather",
+        "than to re-select the same one.",
+        "",
+        "A provider must not accept a method that is not offered in that",
+        "protocol's direction -- tests/test_settings.py enforces it -- because",
+        "the remediation would tell someone to choose something not in the menu."
+      ],
+      "none": { "label": "No authentication", "offeredIn": ["outgoing"] },
+      "passwordCleartext": { "label": "Normal password", "offeredIn": ["incoming", "outgoing"] },
+      "passwordEncrypted": { "label": "Encrypted password", "offeredIn": ["incoming", "outgoing"] },
+      "GSSAPI": { "label": "Kerberos / GSSAPI", "offeredIn": ["incoming", "outgoing"] },
+      "NTLM": { "label": "NTLM", "offeredIn": ["incoming", "outgoing"] },
+      "External": { "label": "TLS Certificate", "offeredIn": ["incoming"] },
+      "OAuth2": { "label": "OAuth2", "offeredIn": ["incoming", "outgoing"] },
+      "old": { "label": null, "offeredIn": [] },
+      "secure": { "label": null, "offeredIn": [] },
+      "anything": { "label": null, "offeredIn": [] }
+    }
+  },
+
+  "rules": [
+    {
+      "id": "cleartext-over-plain-socket",
+      "$comment": [
+        "Judge the pair, not the field alone. passwordCleartext over SSL or",
+        "STARTTLS is fine -- the password is encrypted in transit by the",
+        "socket. Over a plain socket it crosses the network readable, which is",
+        "a genuine defect regardless of what the provider recommends.",
+        "This outranks any per-provider authMethod verdict."
+      ],
+      "appliesTo": "allProviders",
+      "when": { "authMethod": "passwordCleartext", "socketType": "plain" },
+      "verdict": "fail",
+      "message": "The password is sent unencrypted over an unencrypted connection.",
+      "remediation": "Set Connection security to SSL/TLS or STARTTLS, using the port the provider expects for that setting."
+    }
+  ],
+
+  "providers": [
+    {
+      "id": "thundermail",
+      "displayName": "Thundermail",
+      "verified": true,
+      "$comment": [
+        "From pulumi/config.prod.yaml in thunderbird/thunderbird-accounts,",
+        "confirmed against the Thundermail 'View Server Settings' UI and the",
+        "published SRV records."
+      ],
+
+      "match": {
+        "$comment": [
+          "Provider is detected from the incoming hostname, never from an",
+          "email address. That needs no input from the user and still works",
+          "for custom domains, since the RFC 6186 SRV target is the same host.",
+          "Hosts are compared case-insensitively against the parsed host."
+        ],
+        "hosts": ["mail.thundermail.com"]
+      },
+
+      "autoconfig": {
+        "$comment": [
+          "No ISPDB entry -- autoconfig.thunderbird.net/v1.1/thundermail.com",
+          "404s -- so Thunderbird discovers Thundermail via RFC 6186 SRV",
+          "records. Those records are the reason an account's settings look",
+          "the way they do, which makes dns-scripts the natural cross-link."
+        ],
+        "ispdb": false,
+        "srv": ["_imaps._tcp", "_submission._tcp"],
+        "crossCheck": "https://github.com/thunderbird/dns-scripts"
+      },
+
+      "protocols": {
+        "imap": {
+          "direction": "incoming",
+          "supported": true,
+          "servers": [
+            {
+              "host": "mail.thundermail.com",
+              "port": 993,
+              "socketType": "SSL",
+              "provenance": "The _imaps._tcp SRV record, the Thundermail UI and pulumi/config.prod.yaml all agree."
+            }
+          ],
+          "authMethods": {
+            "recommended": "OAuth2",
+            "accepted": {
+              "OAuth2": {
+                "verdict": "pass",
+                "note": "The default and recommended authentication for Thundermail."
+              },
+              "passwordCleartext": {
+                "verdict": "warn",
+                "note": "An app password works, but OAuth2 is the default and is recommended. Not a reason to change a working account."
+              }
+            },
+            "otherwise": {
+              "verdict": "fail",
+              "note": "Thundermail expects OAuth2, or an app password with Normal password."
+            }
+          }
+        },
+
+        "smtp": {
+          "direction": "outgoing",
+          "supported": true,
+          "$comment": [
+            "BOTH server rows are valid -- accept either, do not pick one.",
+            "Thundermail publishes _submission._tcp -> 587, and under RFC 6186",
+            "_submission._tcp is the STARTTLS service on 587 (as opposed to",
+            "_submissions._tcp for implicit TLS on 465). So an autoconfigured",
+            "account lands on 587/alwaysSTARTTLS while the Thundermail web UI",
+            "tells users to type 465/SSL.",
+            "",
+            "Encoding only 465/SSL -- which config.prod.yaml and the UI",
+            "screenshot suggest in isolation -- would report a false failure",
+            "for every autoconfigured Thundermail account. This is why this is",
+            "a set of acceptable pairs rather than one expected value per",
+            "field. Verified against a real profile containing both variants.",
+            "",
+            "The DNS-vs-UI inconsistency is Thundermail's, not ours."
+          ],
+          "servers": [
+            {
+              "host": "mail.thundermail.com",
+              "port": 587,
+              "socketType": "alwaysSTARTTLS",
+              "provenance": "The _submission._tcp SRV record (RFC 6186) -- what Thunderbird autoconfig produces, since Thundermail has no ISPDB entry."
+            },
+            {
+              "host": "mail.thundermail.com",
+              "port": 465,
+              "socketType": "SSL",
+              "preferredForRemediation": true,
+              "provenance": "The Thundermail web UI's manual setup instructions.",
+              "$comment": [
+                "Preferred only for phrasing a fix, because it is what",
+                "Thundermail's own instructions tell a user to type, so a",
+                "volunteer cross-checking the vendor UI sees the same values.",
+                "587/alwaysSTARTTLS is equally correct and must never be",
+                "reported as wrong. Revisit if Thundermail aligns its docs",
+                "with its SRV records."
+              ]
+            }
+          ],
+          "authMethods": {
+            "recommended": "OAuth2",
+            "accepted": {
+              "OAuth2": {
+                "verdict": "pass",
+                "note": "The default and recommended authentication for Thundermail."
+              },
+              "passwordCleartext": {
+                "verdict": "warn",
+                "note": "An app password works, but OAuth2 is the default and is recommended. Not a reason to change a working account."
+              }
+            },
+            "otherwise": {
+              "verdict": "fail",
+              "note": "Thundermail expects OAuth2, or an app password with Normal password."
+            }
+          }
+        },
+
+        "pop3": {
+          "direction": "incoming",
+          "supported": false,
+          "verdict": "fail",
+          "message": "POP isn't supported — use IMAP.",
+          "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP: Thunderbird app menu ☰ → Account Settings → Account Actions → Add Mail Account…, which configures mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2.",
+          "provenance": "No POP host or port exists in production config, and the Thundermail UI has no POP tab.",
+          "$comment": [
+            "The verdict is 'POP isn't supported' rather than 'your POP",
+            "settings are wrong'. There are no correct POP settings to offer,",
+            "so reporting per-field mismatches here would be nonsense."
+          ]
+        },
+
+        "jmap": {
+          "direction": "incoming",
+          "supported": false,
+          "verdict": "fail",
+          "message": "Thunderbird Desktop can't use JMAP yet.",
+          "remediation": "Use IMAP for now: mail.thundermail.com:993, Connection security SSL/TLS, Authentication method OAuth2. JMAP support in Thunderbird Desktop is expected around 2026/2027.",
+          "provenance": "Thundermail serves JMAP on mail.thundermail.com:443, but Thunderbird Desktop cannot use it yet.",
+          "$comment": [
+            "Keyed by protocol so JMAP can be switched to supported later",
+            "without restructuring. Reaching this branch means something",
+            "unusual, since Thunderbird Desktop cannot create such an account",
+            "today -- report it rather than treating it as a parse error."
+          ]
+        }
+      }
+    }
+  ]
+}
