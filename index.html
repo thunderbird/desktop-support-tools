@@ -8,18 +8,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- The provider name in the title, heading and scope note is filled in
+         from settings.json at load, not written here. Which providers this
+         tool covers is a fact about settings.json, and duplicating it into
+         the markup is how the two would come to disagree. The text below is
+         the pre-load fallback, so it names no provider at all. -->
     <title>Check Thunderbird account settings</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <main>
-      <h1>Check Thunderbird account settings</h1>
+      <h1 id="heading">Check Thunderbird account settings</h1>
 
       <p class="lede">
         Paste Thunderbird's Troubleshooting Information and get one verdict per
         account: which settings are wrong, what to change them to, and where in
         Thunderbird to change them.
       </p>
+
+      <p class="scope" id="scope"></p>
 
       <p class="privacy">
         <strong>Nothing you paste leaves this page.</strong> There is no server

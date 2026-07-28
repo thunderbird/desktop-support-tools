@@ -82,7 +82,20 @@ lines are the reason the value is what it is.
 
 ## The web page
 
+**https://thunderbird.github.io/desktop-support-tools/**
+
 The same check, in a browser. Paste, read the verdicts, close the tab.
+
+It covers **Thundermail** accounts, and says so in its heading rather than
+leaving you to work it out from a column of "Not checked" verdicts. Paste a
+whole dump regardless: every account is listed, and accounts belonging to other
+providers are reported as unchecked rather than judged against settings nobody
+has verified.
+
+The scope wording is generated from `settings.json`, so adding a provider
+rewords the page by itself. Nothing in the markup names a provider.
+
+To run it locally:
 
 ```sh
 python3 -m http.server 8000    # then open http://localhost:8000/

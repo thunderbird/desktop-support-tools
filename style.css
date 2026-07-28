@@ -266,3 +266,11 @@ footer {
 a {
   color: var(--accent);
 }
+
+.scope {
+  color: var(--muted);
+}
+
+.scope code {
+  font-size: 0.9em;
+}
