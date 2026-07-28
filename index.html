@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Check Thunderbird account settings</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Check Thunderbird account settings</h1>
+
+      <p class="lede">
+        Paste a user's Troubleshooting Information and get one verdict per
+        account: which settings are wrong, what to change them to, and where in
+        Thunderbird to change them.
+      </p>
+
+      <p class="privacy">
+        <strong>Nothing you paste leaves this page.</strong> There is no server
+        and no storage: the checking happens in your browser, and account names
+        and email addresses are discarded before anything is displayed.
+      </p>
+
+      <details>
+        <summary>How to get the Troubleshooting Information</summary>
+        <p>
+          In Thunderbird: <b>Help → Troubleshooting Information</b>, then
+          <b>Copy text to clipboard</b>. Paste the whole thing below — or just
+          the lines under <b>Mail and News Accounts</b>, which is all this tool
+          reads.
+        </p>
+        <p>
+          Leave <b>Include account names</b> unticked. It is off by default, and
+          everything needed to check a configuration is in the copy either way.
+        </p>
+      </details>
+
+      <label class="field">
+        <span>Troubleshooting Information</span>
+        <textarea
+          id="input"
+          rows="10"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="Paste here…"
+        ></textarea>
+      </label>
+
+      <div class="controls">
+        <label id="account-picker" hidden>
+          <span>Account</span>
+          <select id="account"></select>
+        </label>
+        <button type="button" id="clear">Clear</button>
+      </div>
+
+      <div id="status" role="status" aria-live="polite"></div>
+      <div id="results"></div>
+    </main>
+
+    <footer>
+      <p>
+        Expected settings and their provenance live in
+        <a href="settings.json">settings.json</a>, shared with the command-line
+        version. Source:
+        <a href="https://github.com/thunderbird/desktop-support-tools"
+          >thunderbird/desktop-support-tools</a
+        >. Licensed MPL-2.0.
+      </p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

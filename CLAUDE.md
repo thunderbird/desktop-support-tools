@@ -325,15 +325,29 @@ reliable: `accounts.js` sorts by account number via `idCompare`.
 
 ## Layout
 
-Shared code lives at the repo root; per-tool directories arrive with the first
-tool that has its own webapp.
+Shared code lives at the repo root; per-tool directories arrive with the second
+tool, since the first one's page is the site's index.
 
 ```
+settings.json               expected settings, read by BOTH front-ends
 troubleshooting_info.py     shared parser (all tools use this)
+verdicts.py                 judge parsed settings against settings.json
 parse_troubleshooting.py    CLI: dump or fragment -> JSON
-fixtures/                   golden fixtures + .expected.json (Python/JS contract)
-tests/                      pytest suite
+check_settings.py           CLI: dump or fragment -> per-account verdicts
+troubleshooting_info.js     the parser again, for the browser
+verdicts.js                 the engine again, for the browser
+index.html, app.js, style.css   the webapp; app.js only reads the textarea
+fixtures/                   golden fixtures, plus two companions each
+tests/                      pytest suite and node:test suite, same fixtures
+package.json                no dependencies; "type": "module" and a test script
 ```
+
+**Each fixture has two companions, and they are separate on purpose.**
+`.expected.json` is the *parsing* contract and `.verdict.json` the *judgement*
+contract. They change for unrelated reasons — adding a provider to
+`settings.json` rewrites every verdict while leaving parsing untouched — and
+both are asserted by both implementations. Run `uv run --with pytest pytest -q`
+and `node --test`; either alone proves only half of it.
 
 Input must accept **either** a complete dump **or** just the pasted Accounts
 lines — support staff routinely ask for, and users routinely send, only the

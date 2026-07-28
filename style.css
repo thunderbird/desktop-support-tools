@@ -1,0 +1,268 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Plain CSS, no build step. Colour is never the only signal: every badge
+ * carries words, so the verdicts survive a screenshot pasted into a support
+ * thread by someone who cannot distinguish red from green. */
+
+:root {
+  --fg: #15141a;
+  --muted: #5b5b66;
+  --bg: #ffffff;
+  --surface: #f6f6f8;
+  --line: #d7d7db;
+  --pass: #1d7a3e;
+  --warn: #8a5300;
+  --fail: #b3151a;
+  --unknown: #4a4a55;
+  --accent: #1373d9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #f5f5f7;
+    --muted: #b8b8c2;
+    --bg: #1c1b22;
+    --surface: #2b2a33;
+    --line: #52525e;
+    --pass: #67cf8a;
+    --warn: #ffbd4f;
+    --fail: #ff9aa2;
+    --unknown: #c8c8d0;
+    --accent: #6fb3ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem 4rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main,
+footer {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.lede {
+  margin-top: 0;
+}
+
+.privacy {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 6px 6px 0;
+}
+
+details {
+  margin: 1rem 0;
+}
+
+summary {
+  cursor: pointer;
+}
+
+.field {
+  display: block;
+  margin-top: 1.5rem;
+}
+
+.field > span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: end;
+  margin: 0.75rem 0 1.5rem;
+}
+
+.controls label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+select,
+button {
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+button {
+  cursor: pointer;
+}
+
+#status p {
+  margin: 0.35rem 0;
+}
+
+.reassurance {
+  color: var(--pass);
+}
+
+.warning {
+  color: var(--warn);
+}
+
+.account {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.account-pass {
+  border-left-color: var(--pass);
+}
+.account-warn {
+  border-left-color: var(--warn);
+}
+.account-fail {
+  border-left-color: var(--fail);
+}
+.account-unknown,
+.account-notApplicable {
+  border-left-color: var(--unknown);
+}
+
+.account h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.account-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0 0 0.75rem;
+}
+
+.badge {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-pass {
+  color: var(--pass);
+}
+.badge-warn {
+  color: var(--warn);
+}
+.badge-fail {
+  color: var(--fail);
+}
+.badge-unknown,
+.badge-notApplicable {
+  color: var(--unknown);
+}
+
+.provider,
+.unverified {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.unverified::before {
+  content: "⚠ ";
+}
+
+.note,
+.footnote {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.server h3 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
+.checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.check {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.check p {
+  margin: 0.35rem 0 0;
+}
+
+.check-fix {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.check-why summary {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.check-why p {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.empty ul {
+  color: var(--muted);
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+a {
+  color: var(--accent);
+}

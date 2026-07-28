@@ -1,0 +1,10 @@
+{
+  "name": "desktop-support-tools",
+  "private": true,
+  "type": "module",
+  "description": "Static webapp and CLI helpers for troubleshooting Thunderbird Desktop. No dependencies and no build step: the type field is here so Node treats the shared modules as ES modules, which is what a browser loads them as.",
+  "license": "MPL-2.0",
+  "scripts": {
+    "test": "node --test"
+  }
+}

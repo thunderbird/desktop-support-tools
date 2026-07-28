@@ -84,6 +84,8 @@ _HOST_DETAILS_RE = re.compile(r"^\((?P<protocol>[^)]*)\)\s*(?P<hostport>.*)$")
 # that account's INCOMING line.
 _BARE_KEY_RE = re.compile(r"^(?P<key>[^\s:][^:]*):$")
 
+_INTEGER_RE = re.compile(r"-?[0-9]+")
+
 _INCOMING_PREFIX = "INCOMING:"
 _OUTGOING_PREFIX = "OUTGOING:"
 
@@ -131,7 +133,13 @@ def _normalise_enum(
         return None, []
     if value in by_number.values():
         return value, []
-    if value.lstrip("-").isdigit():
+    # Deliberately ASCII-only and deliberately strict. "--3" used to reach
+    # int() and raise; anything that is not exactly an optional minus followed
+    # by ASCII digits is now reported as unrecognised instead. The JavaScript
+    # parser applies the identical rule, which is why this is a regex rather
+    # than isdigit() -- Python's isdigit() accepts non-ASCII digits that
+    # JavaScript's \d does not, and the two must not disagree.
+    if _INTEGER_RE.fullmatch(value):
         name = by_number.get(int(value))
         if name is not None:
             return name, []

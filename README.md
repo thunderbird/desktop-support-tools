@@ -80,12 +80,31 @@ page, so a provider is added once rather than twice. Each expected value carries
 its provenance, which the output quotes: run the command above and the `why:`
 lines are the reason the value is what it is.
 
+## The web page
+
+The same check, in a browser. Paste, read the verdicts, close the tab.
+
+```sh
+python3 -m http.server 8000    # then open http://localhost:8000/
+```
+
+It is static and client-side only: no build step, no backend, no storage.
+Nothing you paste is uploaded, because there is nowhere for it to go. Opening
+`index.html` from the filesystem will not work — the page fetches
+`settings.json`, so it needs to be served over HTTP.
+
+The page shares `settings.json` with the CLI, and its parser and verdict engine
+are ports of the Python ones, checked against the same fixtures.
+
 ## Tests
 
 ```sh
-uv run --with pytest pytest -q
+uv run --with pytest pytest -q    # Python
+node --test                       # JavaScript
 ```
 
-Fixtures in `fixtures/` each have an `.expected.json` companion. These are the
-shared contract between the Python CLI and the forthcoming JavaScript web page,
-which will be checked against the same files.
+Each fixture in `fixtures/` has two companions: `.expected.json` for what it
+parses to, and `.verdict.json` for how it is judged. Both implementations are
+asserted against both files, which is what keeps the CLI and the web page
+answering the same question the same way. Running only one suite proves only
+half of that.
