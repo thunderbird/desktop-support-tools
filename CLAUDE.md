@@ -23,6 +23,28 @@ Output is aimed at a volunteer who does *not* already know the correct values.
 Follow `dns-scripts`' remediation style: name the exact field in Thunderbird's
 Account Settings UI and the exact value to put in it.
 
+## Audience, and why everything is written in the second person
+
+**End users are the eventual audience, not just support staff.** The rollout is
+staged: staff, volunteers, and power users first, to shake out the bugs, and
+then anyone. That is a decision about *sequence*, not about who the tool is for,
+so nothing may be written in a way that has to be rewritten later.
+
+In practice this means **address the reader as "you", never "the user"**, in
+both front-ends. Three reasons, in increasing order of importance:
+
+1. It is correct for an end user running the tool on their own dump.
+2. It is still correct for a volunteer, whose main next action is pasting the
+   advice into a reply — where second person is what they want anyway.
+3. Third-person text ("if the user deleted that account…") is *wrong* the moment
+   an end user reads it, and there is no warning when that day arrives.
+
+The two front-ends disagreed on this for a while: the CLI said "you" and the web
+page said "the user". Neither reading is wrong for its original audience, which
+is exactly why the drift went unnoticed. Prefer wording that reads correctly to
+both, and avoid jargon the tool itself introduced — "dump", "fixture",
+"socketType" — in anything a reader sees.
+
 ## Commands
 
 Managed with [`uv`](https://docs.astral.sh/uv/), like `dns-scripts`.

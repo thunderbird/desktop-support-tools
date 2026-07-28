@@ -197,7 +197,7 @@ function render() {
       element(
         "p",
         "footnote",
-        "Each account is judged on its own. If one of these is a mailbox the user no longer has, ignore its verdict.",
+        "Each account is judged on its own. If one of these is a mailbox you no longer use, ignore its verdict.",
       ),
     );
   }
@@ -205,7 +205,7 @@ function render() {
     element(
       "p",
       "footnote",
-      "If an account they deleted still appears here, Thunderbird needs quitting and reopening before the troubleshooting information is copied again.",
+      "If an account you deleted still appears here, quit Thunderbird, reopen it, and copy the troubleshooting information again.",
     ),
   );
 }
