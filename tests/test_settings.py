@@ -282,3 +282,22 @@ def test_known_issues_are_well_formed(settings: dict) -> None:
         # must never imply a frequency nobody has measured.
         assert isinstance(issue["observed"], bool)
         assert issue["provenance"].strip()
+
+
+def test_add_account_path_names_both_wordings(settings: dict) -> None:
+    """Version detection is unreliable here, so the text must not depend on it.
+
+    App Basics labels are localised and a pasted fragment has no App Basics
+    section at all, so the tool often cannot tell which Thunderbird it is
+    describing. Naming both wordings is what makes issue #7's open question
+    about the exact boundary harmless.
+    """
+    path = settings["ui"]["addAccountLocation"]
+    assert "Add Account" in path
+    assert "New Account" in path
+
+    for _, _, protocol in unsupported_protocols(settings):
+        if "Add Account" in protocol["remediation"]:
+            assert "New Account" in protocol["remediation"], (
+                "remediation names the new wording without the old one"
+            )

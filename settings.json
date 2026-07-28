@@ -45,10 +45,29 @@
     ],
     "verified": true,
     "$unverified": [
-      "What the '+ Add Account' button opens -- a menu of account types, or",
-      "the setup wizard directly -- was not observed, so the pop3 remediation",
-      "stops at naming the button."
+      "Whether Thunderbird 150 is exactly the version where the app menu's",
+      "'New Account' became 'Add Account'. Issue #7 asks Wayne Mery. The",
+      "remediation names both wordings, so a wrong boundary changes nothing."
     ],
+
+    "$addAccountComment": [
+      "Deliberately names both wordings instead of branching on the version.",
+      "",
+      "The menu item is 'Add Account' in Thunderbird 150 and above and 'New",
+      "Account' in 149 and below -- but this tool frequently cannot tell",
+      "which one it is talking to. App Basics labels are localised, so a",
+      "non-English dump yields no version, and support staff routinely paste",
+      "only the accounts fragment, which has no App Basics section at all.",
+      "CLAUDE.md's rule is that an unknown version stays unknown rather than",
+      "being assumed, and a volunteer reading both wordings loses nothing,",
+      "while one reading a confidently wrong single wording goes hunting for",
+      "a menu item that is not there.",
+      "",
+      "Whether 150 is exactly the right boundary is unconfirmed -- see issue",
+      "#7, which asks Wayne Mery. Naming both is also what makes that",
+      "uncertainty harmless."
+    ],
+    "addAccountLocation": "Thunderbird app menu ☰ → Add Account → Email (the menu item is called New Account in Thunderbird 149 and earlier)",
 
     "locations": {
       "$comment": [
@@ -386,7 +405,7 @@
           "supported": false,
           "verdict": "fail",
           "message": "POP isn't supported — use IMAP.",
-          "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP, using the + Add Account button at the top of the left sidebar in Account Settings. Autoconfiguration should set mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2 for incoming mail, and mail.thundermail.com:587 with STARTTLS for outgoing.",
+          "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP: Thunderbird app menu ☰ → Add Account → Email (the menu item is called New Account in Thunderbird 149 and earlier). Autoconfiguration should set mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2 for incoming mail, and mail.thundermail.com:587 with STARTTLS for outgoing.",
           "provenance": "No POP host or port exists in production config, and the Thundermail UI has no POP tab.",
           "$comment": [
             "The verdict is 'POP isn't supported' rather than 'your POP",

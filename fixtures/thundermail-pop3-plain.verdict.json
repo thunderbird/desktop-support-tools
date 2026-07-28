@@ -23,7 +23,7 @@
               "check": "protocol",
               "outcome": "fail",
               "message": "POP isn't supported — use IMAP.",
-              "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP, using the + Add Account button at the top of the left sidebar in Account Settings. Autoconfiguration should set mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2 for incoming mail, and mail.thundermail.com:587 with STARTTLS for outgoing.",
+              "remediation": "Thundermail has no POP service, so this account cannot work as configured. Add the mailbox again as IMAP: Thunderbird app menu ☰ → Add Account → Email (the menu item is called New Account in Thunderbird 149 and earlier). Autoconfiguration should set mail.thundermail.com:993 with Connection security SSL/TLS and Authentication method OAuth2 for incoming mail, and mail.thundermail.com:587 with STARTTLS for outgoing.",
               "provenance": "No POP host or port exists in production config, and the Thundermail UI has no POP tab."
             },
             {
