@@ -298,3 +298,10 @@ details.account > summary {
 details.account[open] > summary {
   margin-bottom: 0.5rem;
 }
+
+/* Sits in the account's meta row, after the verdict badge and provider name. */
+.copy-button {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+}

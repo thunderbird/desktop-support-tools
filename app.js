@@ -12,6 +12,7 @@
 // Every value that came from the pasted text is written with textContent, never
 // innerHTML. A dump is arbitrary text from a stranger's machine.
 
+import { accountReport } from "./email_report.js";
 import { parse } from "./troubleshooting_info.js";
 import { check } from "./verdicts.js";
 
@@ -107,6 +108,53 @@ function renderCheck(entry) {
   return item;
 }
 
+/** A button that copies one account's verdict, formatted for a reply.
+ *
+ * Writes both text/html and text/plain, so a rich-text reply gets the
+ * formatting and a plain-text one gets something readable rather than tag
+ * soup. That is the same two-flavour mechanism Thunderbird's own about:support
+ * copy uses.
+ */
+function renderCopyButton(account) {
+  const button = element("button", "copy-button", "Copy for email");
+  button.type = "button";
+
+  button.addEventListener("click", async () => {
+    const { html, text } = accountReport(account, {
+      source: `${location.origin}${location.pathname}`,
+    });
+
+    const done = (message) => {
+      button.textContent = message;
+      setTimeout(() => {
+        button.textContent = "Copy for email";
+      }, 2000);
+    };
+
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        }),
+      ]);
+      done("Copied");
+    } catch {
+      // ClipboardItem is unavailable in some browsers and blocked outside a
+      // secure context. Plain text is worth more than nothing, so fall back
+      // rather than failing, and say which one was copied.
+      try {
+        await navigator.clipboard.writeText(text);
+        done("Copied as plain text");
+      } catch {
+        done("Copying failed");
+      }
+    }
+  });
+
+  return button;
+}
+
 function renderServer(server) {
   const section = element("section", "server");
   const role = server.ordinal ? `${server.role} ${server.ordinal}` : server.role;
@@ -152,6 +200,9 @@ function renderAccount(account, collapsed = false) {
         // confirmed, and says so in the output. Same habit here.
         meta.append(element("span", "unverified", "unverified provider"));
       }
+      // Only for accounts with a catalogued provider. There is nothing worth
+      // pasting into a reply about an account this page could not check.
+      meta.append(renderCopyButton(account));
     }
     article.append(meta);
   }
