@@ -1,0 +1,16 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp//Calendar 1.0//EN
+BEGIN:VEVENT
+UID:folded-1@example.org
+DTSTAMP:20240115T090000Z
+DTSTART:20240115T140000Z
+DTEND:20240115T150000Z
+SUMMARY:Réunion budgétaire avec Marie-Claude Venne au sujet du dossier
+ 360300RE-000023
+DESCRIPTION:Ordre du jour : révision des dépenses\, embauche d'un stagia
+ ire\, et le renouvellement du bail.\n\nMerci de confirmer votre présence
+ auprès de Joannie avant vendredi.
+LOCATION:Bureau 2315\, 475 boulevard de l'Avenir\, Laval
+END:VEVENT
+END:VCALENDAR

@@ -54,6 +54,8 @@ uv sync                                                  # set up
 uv run --with pytest pytest -q                            # tests
 uv run parse_troubleshooting.py fixtures/thundermail-correct.txt
 pbpaste | uv run parse_troubleshooting.py                 # parse a real paste
+uv run anonymize_ics.py Calendar.ics -o scrubbed.ics      # scrub a calendar
+uv run anonymize_ics.py --check scrubbed.ics              # audit a scrubbed one
 python3 -m http.server 8000                               # serve the webapp
 ```
 
@@ -238,6 +240,74 @@ presence cannot alter a verdict.
 Fixtures derived from real dumps have their identities scrubbed to `example.com`
 addresses. Keep the structure verbatim and change only the identifying values.
 
+## Scrubbing calendars: what `anonymize_ics.py` learned the hard way
+
+Written for [ticket 7067](https://tbpro.zendesk.com/agent/tickets/7067), whose
+1,338-event `Calendar.ics` was the only reproduction of the bug and could not be
+shared. **Neither that calendar nor any scrubbed copy of it is in this repo** —
+the calendar fixtures here are hand-written and synthetic, on purpose. The first
+version of the scrubber shipped five defects, each now a fixture and a test. Do
+not simplify them away.
+
+**A calendar cannot be scrubbed one physical line at a time.** Long values wrap
+onto continuation lines beginning with a space, so the first version's
+whole-file regex — which used `$` under `re.MULTILINE` — stopped every match at
+the first line break and left the rest of the value in place, producing
+`SUMMARY:Anonymized Datas et auteurs.` Unfold first, scrub, then rewrap. The
+rewrap counts **octets, not characters**: the limit is 75 octets, and breaking a
+multi-byte character in half corrupts the file.
+
+**Blanking a value while keeping its parameters scrubs nothing.** `CN`,
+`SENT-BY`, `DIR`, `ALTREP`, `MEMBER`, `DELEGATED-FROM`, `DELEGATED-TO`, `EMAIL`
+and any `X-` parameter carry names, addresses and links. Hence an allow-list of
+the parameters that describe rather than identify, not a deny-list.
+
+**The obvious property list is too short.** `ATTACH`, `URL`, `CATEGORIES`, `GEO`
+and the calendar's own `NAME` each carried a real email address past the first
+version. Replacements have to keep their value type — a `VALUE=BINARY`
+attachment must stay decodable base64, or the file stops parsing.
+
+**Everyone gets their own stand-in, not a shared one.** Collapsing every address
+onto `anon@example.com` turned a three-attendee meeting into one attendee listed
+three times, and made the organiser indistinguishable from an attendee. iTIP
+keys attendees by address, so that is a change of meaning, not of cosmetics. A
+first-seen map gives `person1@example.com`, `person2@example.com`, …, matched
+case-insensitively and shared between `ORGANIZER` and `ATTENDEE`.
+
+**An empty address stays empty.** 533 of the 534 organisers in the ticket-7067
+calendar were `ORGANIZER:MAILTO:` with nothing after the colon — an Exchange
+export quirk — and the first version invented an address for every one of them.
+An absent organiser is exactly the sort of oddity a calendar bug turns on.
+
+Identifiers are the one thing replaced with something unpredictable: a scrubbed
+calendar gets imported into real profiles, where a numbered identifier could
+collide with an entry already there. A repeating event and its changed
+occurrence share an identifier, so the replacement is mapped rather than
+regenerated per line — otherwise the changed occurrence stops pointing at its
+series. The tests normalise identifiers to `UID-1`, `UID-2` before comparing
+against the golden files.
+
+**Fidelity is a feature, not politeness.** Everything outside the scrub list
+comes through byte-identical, and a test asserts it. A scrubbed calendar is only
+worth having if it still reproduces what the original did, and hand-trimming one
+usually destroys exactly the thing that triggered the bug.
+
+**`--check` reuses the scrubber rather than reimplementing it.** Clean means
+scrubbing again would change nothing, identifiers excluded. One definition, so
+the reporter and the rewriter cannot drift apart.
+
+**Git will strip the carriage returns if you let it.** `core.autocrlf=input`
+rewrote every committed `.ics` to bare LF, and the golden fixtures — compared
+byte for byte against what the scrubber emits — stopped matching the moment they
+came back out of the index. `.gitattributes` marks `*.ics` as `-text` so the
+line endings survive a round trip. CRLF is the calendar format, not a platform
+preference.
+
+**No JavaScript twin, and that is not an oversight.** "The parser exists twice"
+applies to the tools behind the web page, which exist so somebody can paste
+something and get an answer. This one is a step support staff run over a file
+before attaching it to a bug; it never had a page to be half of.
+
 ## Thundermail expected settings
 
 From `pulumi/config.prod.yaml` in
@@ -384,10 +454,12 @@ troubleshooting_info.py     shared parser (all tools use this)
 verdicts.py                 judge parsed settings against settings.json
 parse_troubleshooting.py    CLI: dump or fragment -> JSON
 check_settings.py           CLI: dump or fragment -> per-account verdicts
+anonymize_ics.py            CLI: calendar -> the same calendar without the people
 troubleshooting_info.js     the parser again, for the browser
 verdicts.js                 the engine again, for the browser
 index.html, app.js, style.css   the webapp; app.js only reads the textarea
 fixtures/                   golden fixtures, plus two companions each
+                            (ics-*.ics have one: .expected.ics)
 tests/                      pytest suite and node:test suite, same fixtures
 package.json                no dependencies; "type": "module" and a test script
 ```

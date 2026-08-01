@@ -1,0 +1,13 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp//Calendar 1.0//EN
+BEGIN:VEVENT
+UID:params-1@example.org
+DTSTAMP:20240220T080000Z
+DTSTART;TZID=America/Toronto:20240220T110000
+DTEND;TZID=America/Toronto:20240220T120000
+SUMMARY;LANGUAGE=fr;ALTREP="https://intranet.example.org/notes/jgirard":Suivi
+ORGANIZER;CN="Girard, Joannie";SENT-BY="mailto:adjointe@example.org":mailto:joannie.girard@example.org
+ATTENDEE;RSVP=TRUE;CN=kevin.halley@example.net;PARTSTAT=NEEDS-ACTION;X-NOTE=called him:mailto:kevin.halley@example.net
+END:VEVENT
+END:VCALENDAR

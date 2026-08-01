@@ -1,0 +1,5 @@
+# A calendar file ends every line with CRLF -- that is the format, not a
+# platform quirk, and the scrubber's golden fixtures are compared byte for
+# byte. Without this, core.autocrlf=input strips the CR on commit and the
+# fixtures stop matching what the tool emits.
+*.ics -text
