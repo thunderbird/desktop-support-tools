@@ -2,3 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+
+# Calendars scrubbed from real tickets are worked on here but never live here.
+# fixtures/*.ics are hand-written and synthetic, so they stay tracked.
+/*.ics
