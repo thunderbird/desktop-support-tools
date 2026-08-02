@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"""Tests for the two CalDAV cleanup tools.
+"""Tests for the three CalDAV tools: making a calendar, and the two that clean up.
 
 Everything here runs offline. The server is a stand-in that answers from a
 script of replies, so what is under test is the part that gets a real calendar
@@ -19,6 +19,7 @@ Those are the assertions worth having.
 from __future__ import annotations
 
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -27,7 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import caldav_delete_calendars as calendars_tool  # noqa: E402
 import caldav_delete_events as events_tool  # noqa: E402
+import caldav_make_calendar as make_tool  # noqa: E402
 from caldav_delete_calendars import Account  # noqa: E402
+from caldav_make_calendar import Maker, address_for  # noqa: E402
 from caldav_delete_events import (  # noqa: E402
     Calendar,
     entries_in,
@@ -503,3 +506,100 @@ def test_pointing_at_one_calendar_says_so(monkeypatch, capsys) -> None:
                monkeypatch, account)
     assert code == 1
     assert "take the last part off it" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------
+# Making a calendar
+
+
+def run_make(argv, monkeypatch, account) -> int:
+    monkeypatch.setenv("CALDAV_PASSWORD", "p")
+    monkeypatch.setattr(make_tool, "Maker", lambda *a, **k: account)
+    return make_tool.main(argv)
+
+
+ONE_CALENDAR = multistatus(collection("/dav/cal/you/default", "Personal", "calendar"))
+
+
+def test_the_address_comes_from_the_name() -> None:
+    """So a calendar made for a ticket is still identifiable a month later."""
+    assert address_for("ticket 7067") == "ticket-7067"
+    assert address_for("Réunion budgétaire!") == "r-union-budg-taire"
+    assert address_for("  ") == "calendar"
+
+
+def test_a_calendar_is_made_where_the_name_says(monkeypatch) -> None:
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    calls = talking(account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (201, b""))
+    assert run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u"], monkeypatch, account) == 0
+    assert ("MKCALENDAR", "/dav/cal/you/ticket-7067/") in calls
+
+
+def test_the_address_can_be_given_instead(monkeypatch) -> None:
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    calls = talking(account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (201, b""))
+    run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u", "--path", "scratch"],
+             monkeypatch, account)
+    assert ("MKCALENDAR", "/dav/cal/you/scratch/") in calls
+
+
+def test_a_name_that_is_markup_does_not_break_the_request(monkeypatch) -> None:
+    """Someone will call a calendar "R&D <test>", and it must still be valid XML."""
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    sent = []
+
+    def reply(method, path, body):
+        sent.append(body)
+        return (207, ONE_CALENDAR) if method == "PROPFIND" else (201, b"")
+
+    talking(account, reply)
+    run_make(["https://host/dav/cal/you/", "R&D <test>", "-u", "u"], monkeypatch, account)
+    made = sent[-1]
+    assert "R&amp;D &lt;test&gt;" in made
+    ET.fromstring(made)
+
+
+def test_an_address_already_in_use_is_left_alone(monkeypatch, capsys) -> None:
+    """Nothing here overwrites a calendar, because its contents would go too."""
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    calls = talking(account, lambda *_: (207, HOME))
+    code = run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u"], monkeypatch, account)
+    assert code == 1
+    assert "already there" in capsys.readouterr().out
+    assert not [method for method, _ in calls if method == "MKCALENDAR"]
+
+
+def test_a_name_already_in_use_is_left_alone(monkeypatch, capsys) -> None:
+    """Two calendars with one name are indistinguishable in Thunderbird's list."""
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    calls = talking(account, lambda *_: (207, HOME))
+    code = run_make(["https://host/dav/cal/you/", "TICKET 7067", "-u", "u", "--path", "other"],
+                    monkeypatch, account)
+    assert code == 1
+    assert "already has a calendar called" in capsys.readouterr().out
+    assert not [method for method, _ in calls if method == "MKCALENDAR"]
+
+
+def test_pointing_at_one_calendar_says_so_here_too(monkeypatch, capsys) -> None:
+    account = Maker("https://host/dav/cal/you/default/", "u", "p")
+    talking(account, lambda *_: (207, multistatus()))
+    code = run_make(["https://host/dav/cal/you/default/", "scratch", "-u", "u"], monkeypatch, account)
+    assert code == 1
+    assert "take the last part off it" in capsys.readouterr().out
+
+
+def test_a_server_that_says_it_exists_is_reported(monkeypatch, capsys) -> None:
+    """405 is the server contradicting the listing, and it must not read as success."""
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    talking(account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (405, b""))
+    code = run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u"], monkeypatch, account)
+    assert code == 1
+    assert "already at that address" in capsys.readouterr().err
+
+
+def test_a_bad_password_says_to_use_an_app_password(monkeypatch, capsys) -> None:
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    talking(account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (401, b""))
+    code = run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u"], monkeypatch, account)
+    assert code == 1
+    assert "app password" in capsys.readouterr().err

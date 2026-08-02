@@ -128,6 +128,162 @@ An organiser with no address stays empty rather than being given one. Exchange
 exports quite often look like that, and inventing a person who was never there
 is its own kind of wrong answer.
 
+## Making and deleting a test calendar by hand
+
+Reproducing a calendar bug means making a calendar, filling it with a scrubbed
+copy of somebody's data, and throwing it away afterwards — over and over, and
+never against a calendar you actually use. Two `curl` requests do the making and
+the throwing away, with no client in the way to cache, retry or reinterpret
+anything.
+
+There are scripts for all of it, and they are the better way round if you are
+doing this more than once — they list what is already there before they touch
+anything:
+
+```sh
+HOME_URL='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
+uv run caldav_make_calendar.py "$HOME_URL" "ticket 7067" -u nemo@thundermail.com
+uv run caldav_delete_calendars.py "$HOME_URL" -u nemo@thundermail.com   # dry run
+uv run caldav_delete_events.py "${HOME_URL}ticket-7067/" -u nemo@thundermail.com --everything
+```
+
+`caldav_make_calendar.py` works the calendar's address out from its name
+(`ticket 7067` → `.../ticket-7067/`, or give `--path`), and refuses if the
+account already has a calendar at that address or under that name. The `curl`
+below is the same request with nothing in the way, which is what you want when
+it is the server's behaviour you are investigating.
+
+### What you need first
+
+**An app password, not your account password.** These requests authenticate with
+HTTP Basic, so an account that signs in with OAuth2 will reject the password you
+type into Thunderbird. Make an app password in your provider's settings.
+
+**The address of the account's calendars.** In Thunderbird, right-click the
+calendar → **Properties** → **Location** gives one calendar's address; take the
+last segment off for the account's calendar home. An `@` in the path has to be
+written `%40`:
+
+```sh
+CAL_HOME='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
+CAL_USER='nemo@thundermail.com'
+```
+
+The examples below use `-u "$CAL_USER"`, which prompts for the password. Every URL
+needs its **trailing slash** — a calendar is a collection, and some servers
+answer differently without it.
+
+### See what is there
+
+```sh
+curl -s -u "$CAL_USER" -X PROPFIND -H 'Depth: 1' \
+  -H 'Content-Type: application/xml; charset=utf-8' \
+  --data-binary '<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop>
+    <D:displayname/>
+    <D:resourcetype/>
+    <C:schedule-default-calendar-URL/>
+  </D:prop>
+</D:propfind>' \
+  "$CAL_HOME"
+```
+
+The reply is one `<response>` per collection: its address in `<href>`, its name
+in `<displayname>`, and what it is in `<resourcetype>`. Two of them are the
+scheduling **inbox** and **outbox** rather than calendars — leave those alone,
+deleting them breaks the account.
+
+`<schedule-default-calendar-URL>` is asked for because it is meant to name the
+default calendar, the one never to test against. **Thundermail does not answer
+it** (checked 2026-08-01), so there the default is identifiable only by its
+`/default/` path segment, and by its refusing to be deleted. Other servers do
+answer it, which is why it stays in the request.
+
+### Make one
+
+```sh
+curl -i -u "$CAL_USER" -X MKCALENDAR \
+  -H 'Content-Type: application/xml' \
+  --data '<?xml version="1.0" encoding="utf-8"?>
+<C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:set><D:prop><D:displayname>ticket 7067</D:displayname></D:prop></D:set>
+</C:mkcalendar>' \
+  "${CAL_HOME}ticket-7067/"
+```
+
+**`201 Created`** is the answer you want. Run against Thundermail on 2026-08-01,
+exactly as written. The last path segment — `ticket-7067` — is the calendar's
+address and you choose it; `<displayname>` is the separate, human-readable name
+Thunderbird shows in its calendar list. Naming the address after the ticket is
+what makes an abandoned test calendar identifiable a month later.
+
+RFC 4791 allows more properties in that body —
+`<C:supported-calendar-component-set>`, to make a calendar that takes events but
+not tasks, for one. None of them have been tried here, so add them knowing that;
+the two-line body above is the part that is known to work.
+
+Entries go in one `PUT` per entry, to `<calendar>/<something>.ics`; Thunderbird's
+**Import** does exactly that, one request per event. There is a worked example,
+including reading the `ETag` back, in
+[issue #13](https://github.com/thunderbird/desktop-support-tools/issues/13).
+
+Thunderbird will not notice the new calendar by itself. Subscribe to it the
+normal way: **New Calendar → On the Network**, which lists what the account has.
+
+### Delete one
+
+```sh
+curl -i -u "$CAL_USER" -X DELETE "${CAL_HOME}ticket-7067/"
+```
+
+**`204 No Content`** means it is gone — also confirmed against Thundermail on
+2026-08-01. Everything in it goes with it, and nothing here can bring any of it
+back: there is no confirmation step and no undo, so read the URL twice before you
+press return. This is the same request `caldav_delete_calendars.py` makes, minus
+the part where it shows you the list first.
+
+**Never point this at the default calendar.** Thundermail refuses with
+`<A:default-calendar-needed/>`, which is the good outcome, but the account's
+scheduling target is not a thing to gamble on. Empty it instead:
+
+```sh
+uv run caldav_delete_events.py "${CAL_HOME}default/" -u "$CAL_USER" --everything
+```
+
+Afterwards, remove the calendar from Thunderbird too. It keeps its own cached
+copy and will happily go on showing a calendar the server no longer has.
+
+### On Windows, without WSL
+
+`curl.exe` is part of Windows 10 1803 and later, and Windows 11, so the requests
+above need no extra software. Two things change:
+
+**Type `curl.exe`, not `curl`.** Windows PowerShell 5.1 — the one that is there
+by default — uses `curl` as another name for `Invoke-WebRequest`, which takes
+entirely different arguments and will reject `-X` and `-u` with errors that do
+not explain themselves. PowerShell 7 dropped that name, but do not count on
+which one you are in front of.
+
+**Put the XML in a file.** The examples above are written for a Unix shell, where
+a quoted block can run over several lines; neither PowerShell nor `cmd` will take
+that. Save the body as `mkcalendar.xml` and point curl at it, which then reads
+the same way on every platform:
+
+```
+curl.exe -i -u nemo@thundermail.com -X MKCALENDAR ^
+  -H "Content-Type: application/xml" ^
+  --data-binary "@mkcalendar.xml" ^
+  "https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/ticket-7067/"
+```
+
+The `DELETE` has no body, so apart from the name and the double quotes it is
+unchanged.
+
+> **Unverified:** these two adjustments follow from how Windows shells and
+> `curl.exe` are documented to behave, but the requests in this section have only
+> been run from macOS. Correct this line once somebody has run them on Windows.
+
 ## The web page
 
 **https://thunderbird.github.io/desktop-support-tools/**
