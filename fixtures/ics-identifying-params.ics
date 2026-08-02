@@ -6,8 +6,8 @@ UID:params-1@example.org
 DTSTAMP:20240220T080000Z
 DTSTART;TZID=America/Toronto:20240220T110000
 DTEND;TZID=America/Toronto:20240220T120000
-SUMMARY;LANGUAGE=fr;ALTREP="https://intranet.example.org/notes/jgirard":Suivi
-ORGANIZER;CN="Girard, Joannie";SENT-BY="mailto:adjointe@example.org":mailto:joannie.girard@example.org
-ATTENDEE;RSVP=TRUE;CN=kevin.halley@example.net;PARTSTAT=NEEDS-ACTION;X-NOTE=called him:mailto:kevin.halley@example.net
+SUMMARY;LANGUAGE=fr;ALTREP="https://intranet.example.org/notes/jsmith":Suivi
+ORGANIZER;CN="Smith, Jim";SENT-BY="mailto:adjointe@example.org":mailto:jim.smith@example.org
+ATTENDEE;RSVP=TRUE;CN=jane.smith@example.net;PARTSTAT=NEEDS-ACTION;X-NOTE=called them:mailto:jane.smith@example.net
 END:VEVENT
 END:VCALENDAR

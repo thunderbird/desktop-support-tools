@@ -7,10 +7,10 @@ DTSTAMP:20240510T090000Z
 DTSTART:20240510T130000Z
 DTEND:20240510T140000Z
 SUMMARY:Comité
-ORGANIZER:mailto:joannie.girard@example.org
-ATTENDEE;ROLE=CHAIR:mailto:joannie.girard@example.org
-ATTENDEE;ROLE=REQ-PARTICIPANT:mailto:kevin.halley@example.net
-ATTENDEE;ROLE=OPT-PARTICIPANT:mailto:marie-claude.venne@example.org
+ORGANIZER:mailto:jim.smith@example.org
+ATTENDEE;ROLE=CHAIR:mailto:jim.smith@example.org
+ATTENDEE;ROLE=REQ-PARTICIPANT:mailto:jane.smith@example.net
+ATTENDEE;ROLE=OPT-PARTICIPANT:mailto:george.smith@example.org
 END:VEVENT
 BEGIN:VEVENT
 UID:identities-2@example.org
@@ -18,8 +18,8 @@ DTSTAMP:20240517T090000Z
 DTSTART:20240517T130000Z
 DTEND:20240517T140000Z
 SUMMARY:Suivi du comité
-ORGANIZER:mailto:MARIE-CLAUDE.VENNE@example.org
-ATTENDEE:mailto:joannie.girard@example.org
+ORGANIZER:mailto:GEORGE.SMITH@example.org
+ATTENDEE:mailto:jim.smith@example.org
 END:VEVENT
 BEGIN:VEVENT
 UID:identities-3@example.org

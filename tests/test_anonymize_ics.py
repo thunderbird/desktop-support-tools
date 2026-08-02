@@ -32,23 +32,23 @@ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 
 # Identifying strings planted in the fixtures. None may survive scrubbing.
 PII_STRINGS = (
-    "Girard",
-    "Joannie",
-    "joannie.girard@example.org",
-    "kevin.halley@example.net",
-    "marie-claude.venne@example.org",
-    "MARIE-CLAUDE.VENNE@example.org",
-    "Marie-Claude Venne",
+    "Smith",
+    "Jim",
+    "jim.smith@example.org",
+    "jane.smith@example.net",
+    "george.smith@example.org",
+    "GEORGE.SMITH@example.org",
+    "George Smith",
     "adjointe@example.org",
-    "contrat-girard.pdf",
-    "joannie.jpg",
+    "contrat-smith.pdf",
+    "jim.jpg",
     "360300RE-000023",
     "475 boulevard de l'Avenir",
     "Ressources humaines",
     "45.5712",
     "outlook.example.org",
     "intranet.example.org",
-    "called him",
+    "called them",
     "renouvellement du bail",
 )
 
@@ -235,7 +235,7 @@ def test_identifiers_are_replaced_rather_than_kept() -> None:
 
 
 def test_a_name_beside_a_blanked_address_is_dropped() -> None:
-    """Blanking ORGANIZER while leaving CN="Girard, Joannie" scrubs nothing."""
+    """Blanking ORGANIZER while leaving CN="Smith, Jim" scrubs nothing."""
     scrubbed, report = anonymize(read("ics-identifying-params.ics"))
 
     assert "CN=" not in scrubbed
@@ -255,7 +255,7 @@ def test_a_name_beside_a_blanked_address_is_dropped() -> None:
 def test_attachments_and_links_are_replaced() -> None:
     scrubbed, _ = anonymize(read("ics-attachments-and-urls.ics"))
 
-    assert "CID:contrat-girard.pdf@01DEADBE.EF001122" not in scrubbed
+    assert "CID:contrat-smith.pdf@01DEADBE.EF001122" not in scrubbed
     assert "ATTACH:https://example.com/anonymized" in scrubbed
     # A binary attachment has to stay decodable base64 or the file stops parsing.
     assert "ENCODING=BASE64:QW5vbnltaXplZA==" in scrubbed
@@ -267,7 +267,7 @@ def test_attachments_and_links_are_replaced() -> None:
 
 def test_check_names_what_it_found() -> None:
     findings = audit(read("ics-identities.ics"))
-    assert any("joannie.girard@example.org" in finding for finding in findings)
+    assert any("jim.smith@example.org" in finding for finding in findings)
     assert any("ORGANIZER" in finding for finding in findings)
 
 

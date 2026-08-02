@@ -50,7 +50,7 @@ SCRUBBED = (
 # Parameters kept on a scrubbed property. Everything else goes, because CN,
 # SENT-BY, DIR, ALTREP, MEMBER, DELEGATED-FROM, DELEGATED-TO, EMAIL and the X-
 # parameters all carry names, addresses or links. Blanking a property's value
-# and leaving CN="Girard, Joannie" beside it scrubs nothing.
+# and leaving CN="Smith, Jim" beside it scrubs nothing.
 SAFE_PARAMETERS = frozenset({
     "VALUE",
     "ENCODING",

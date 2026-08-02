@@ -1,17 +1,17 @@
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Example Corp//Calendar 1.0//EN
-NAME:Joannie Girard — Travail
-X-WR-CALNAME:Joannie Girard — Travail
+NAME:Jim Smith — Travail
+X-WR-CALNAME:Jim Smith — Travail
 BEGIN:VEVENT
 UID:attach-1@example.org
 DTSTAMP:20240305T120000Z
 DTSTART:20240305T160000Z
 DTEND:20240305T170000Z
 SUMMARY:Signature
-ATTACH:CID:contrat-girard.pdf@01DEADBE.EF001122
-ATTACH;FMTTYPE=image/jpeg;FILENAME=joannie.jpg;VALUE=BINARY;ENCODING=BASE64:am9hbm5pZUBleGFtcGxlLm9yZw==
-URL:https://outlook.example.org/owa/calendar/JoannieGirard@example.org/booking
+ATTACH:CID:contrat-smith.pdf@01DEADBE.EF001122
+ATTACH;FMTTYPE=image/jpeg;FILENAME=jim.jpg;VALUE=BINARY;ENCODING=BASE64:amltQGV4YW1wbGUub3Jn
+URL:https://outlook.example.org/owa/calendar/JimSmith@example.org/booking
 CATEGORIES:Ressources humaines,Confidentiel
 GEO:45.5712;-73.6931
 END:VEVENT
