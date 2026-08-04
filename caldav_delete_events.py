@@ -35,6 +35,15 @@ which entries those were:
 It reports and changes nothing until you add --delete. Run two of the three
 first and check they agree on the count before deleting anything.
 
+Matching either takes an entry or leaves it, and sometimes you want to look at
+the ones you do not recognise. --delete --confirm asks about each entry -- what
+it says and when it is -- and takes yes, no, all the rest, or stop here. "All
+the rest" is the useful one: look at the first few, satisfy yourself the right
+entries are being picked, and stop being asked.
+
+-u can be left off if CALDAV_USER is set, as CALDAV_PASSWORD already works for
+the password.
+
 On a test account none of that care is worth anything, because there is nothing
 in the calendar worth keeping. Empty it instead:
 
@@ -57,11 +66,18 @@ import http.client
 import sys
 import time
 import xml.etree.ElementTree as ET
-from getpass import getpass
-from os import environ
 from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
+from caldav_asking import (
+    NO,
+    QUIT,
+    Asking,
+    Refused,
+    add_confirmation,
+    add_credentials,
+    ready,
+)
 from anonymize_ics import (
     ALREADY_A_PSEUDONYM,
     BINARY_PLACEHOLDER,
@@ -222,6 +238,42 @@ def times_in(text: str) -> set[str]:
         if parts:
             summaries.add("\x1f".join([kind, *parts]))
     return summaries
+
+
+def _plain(value: str) -> str:
+    """An iCalendar text value as text: the escapes undone, and cut to one line."""
+    for escaped, plain in (("\\n", " "), ("\\N", " "), ("\\,", ","), ("\\;", ";"), ("\\\\", "\\")):
+        value = value.replace(escaped, plain)
+    value = " ".join(value.split())
+    return value if len(value) <= 60 else value[:57] + "..."
+
+
+def _readable(stamp: str) -> str:
+    """A calendar time as something you can take in at a glance."""
+    digits = stamp.rstrip("Z")
+    if len(digits) == 8 and digits.isdigit():
+        return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+    if len(digits) == 15 and digits[8] == "T":
+        return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]} {digits[9:11]}:{digits[11:13]}"
+    return stamp  # a form we do not recognise is still better shown than hidden
+
+
+def described(data: str) -> str:
+    """One line saying what an entry is, for when you are being asked about it.
+
+    What it says and when it happens, because those are what you recognise. The
+    address is not: server-generated names say nothing about which entry it is.
+    """
+    for _, lines in entries_in(data):
+        title = when = ""
+        for line in lines:
+            name = _name_of(line)
+            if name == "SUMMARY" and not title:
+                title = _plain(_value_of(line))
+            elif name == "DTSTART" and not when:
+                when = _readable(_value_of(line))
+        return f"{title or '(no title)'}  --  {when or 'no start time'}"
+    return "(nothing readable in it)"
 
 
 def looks_scrubbed(text: str) -> bool:
@@ -392,19 +444,24 @@ class Calendar:
         root, cut_short = self._multistatus("PROPFIND", LISTING, "1")
         return self._entry_addresses(root), cut_short
 
+    def _fetch(self, batch: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
+        """One request for named entries, as address, version tag and text."""
+        asked = "".join(f"  <D:href>{escape(href)}</D:href>\n" for href, _ in batch)
+        root, _ = self._multistatus("REPORT", FETCH_HEAD + asked + FETCH_TAIL, "0")
+        found = []
+        for response in root.findall(f"{{{DAV}}}response"):
+            href = (response.findtext(f"{{{DAV}}}href") or "").strip()
+            etag = (response.findtext(f".//{{{DAV}}}getetag") or "").strip()
+            data = response.findtext(f".//{{{CALDAV}}}calendar-data") or ""
+            if href and data:
+                found.append((href, etag, data))
+        return found
+
     def contents(self, addresses: list[tuple[str, str]]) -> list[tuple[str, str, str]]:
         """Fetch named entries, as address, version tag and text, in batches."""
-        found = []
+        found: list[tuple[str, str, str]] = []
         for start in range(0, len(addresses), self.batch):
-            batch = addresses[start : start + self.batch]
-            asked = "".join(f"  <D:href>{escape(href)}</D:href>\n" for href, _ in batch)
-            root, _ = self._multistatus("REPORT", FETCH_HEAD + asked + FETCH_TAIL, "0")
-            for response in root.findall(f"{{{DAV}}}response"):
-                href = (response.findtext(f"{{{DAV}}}href") or "").strip()
-                etag = (response.findtext(f".//{{{DAV}}}getetag") or "").strip()
-                data = response.findtext(f".//{{{CALDAV}}}calendar-data") or ""
-                if href and data:
-                    found.append((href, etag, data))
+            found.extend(self._fetch(addresses[start : start + self.batch]))
             print(
                 f"\rRead {len(found)} of {len(addresses)} entries...",
                 end="",
@@ -413,6 +470,17 @@ class Calendar:
             )
         print(file=sys.stderr)
         return found
+
+    def content_of(self, href: str, etag: str) -> str:
+        """One entry's text, and quietly, because it is wanted for a question.
+
+        Under --everything nothing is read at all, deliberately, so a per-entry
+        question has nothing to show you unless it asks for that entry itself.
+        One request per question is nothing next to the time you take to answer
+        it, and "all the rest" goes straight back to reading nothing.
+        """
+        found = self._fetch([(href, etag)])
+        return found[0][2] if found else ""
 
     def delete(self, href: str, etag: str) -> tuple[bool, str]:
         """Delete one entry. Returns whether it is now gone, and why not."""
@@ -443,7 +511,12 @@ def main(argv: list[str] | None = None) -> int:
         epilog="With neither --ids nor --dates, it matches what the scrubber left behind.",
     )
     parser.add_argument("url", help="the calendar's address, from Thunderbird's Properties dialog")
-    parser.add_argument("-u", "--user", required=True, help="the username to sign in with")
+    add_credentials(parser)
+    add_confirmation(
+        parser,
+        asks="ask about each entry: yes, no, all the rest, or stop here",
+        skips="do not ask to confirm at all; this does not imply --delete",
+    )
     source = parser.add_mutually_exclusive_group()
     source.add_argument(
         "--ids",
@@ -509,19 +582,25 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{source_path} has nothing in it to match on.", file=sys.stderr)
             return 1
 
-    # Prompting keeps the password out of your shell history.
-    password = environ.get("CALDAV_PASSWORD") or getpass(f"App password for {args.user}: ")
+    try:
+        user, password = ready(args)
+    except Refused as why:
+        print(str(why), file=sys.stderr)
+        return 1
 
     try:
-        calendar = Calendar(args.url, args.user, password, page=args.page, batch=args.batch)
+        calendar = Calendar(args.url, user, password, page=args.page, batch=args.batch)
     except ValueError as error:
         print(str(error), file=sys.stderr)
         return 1
 
     try:
         total_deleted = 0
+        kept = 0
         failures: list[str] = []
         first = True
+        stopped = False
+        asking = Asking(args.confirm)
 
         # A server that will only show part of the calendar at a time is worked
         # through in passes: delete what this pass can see, look again, repeat.
@@ -551,6 +630,13 @@ def main(argv: list[str] | None = None) -> int:
                     if wanted_times and times_in(data) & wanted_times:
                         by_times.append((href, etag))
                 matched = by_ids if args.ids else by_times if args.dates else by_marks
+
+            # What you have already said no to is not offered again. A pass lists
+            # what the last one did not delete, so without this you would be asked
+            # the same question every pass until you gave in or gave up.
+            if asking.declined:
+                matched = [pair for pair in matched if pair[0] not in asking.declined]
+            known = {href: data for href, _, data in contents}
 
             if first:
                 held = f"at least {len(addresses)}" if partial else f"{len(addresses)}"
@@ -602,8 +688,10 @@ def main(argv: list[str] | None = None) -> int:
 
                 # Emptying a calendar is worth one more deliberate step than
                 # deleting a recognised part of it, and typing the number means
-                # having read it.
-                if args.everything:
+                # having read it. --confirm replaces that step rather than adding
+                # to it: you are about to be asked about every entry in turn, so
+                # asking about all of them first is a question already answered.
+                if args.everything and not args.yes and not args.confirm:
                     print(f"\nThis empties {calendar.path} on {calendar.host} completely,")
                     print("including anything you made by hand. It cannot be undone from here.")
                     try:
@@ -619,29 +707,58 @@ def main(argv: list[str] | None = None) -> int:
 
             print()
             deleted = 0
+            counted = False
             for number, (href, etag) in enumerate(matched, start=1):
+                asked = asking.on
+                if asked:
+                    data = known.get(href) or calendar.content_of(href, etag)
+                    answer = asking.about(described(data) if data else href)
+                    if answer == QUIT:
+                        stopped = True
+                        break
+                    if answer == NO:
+                        asking.declined.add(href)
+                        kept += 1
+                        continue
+
                 gone, why = calendar.delete(href, etag)
                 if gone:
                     deleted += 1
                 else:
                     failures.append(f"  {href}: {why}")
-                print(
-                    f"\rDeleted {total_deleted + deleted} entries...",
-                    end="",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                if args.delay and number < len(matched):
-                    time.sleep(args.delay)
-            print(file=sys.stderr)
+
+                # A running count rewritten in place is the right report for
+                # hundreds going by, and the wrong one next to a question: the
+                # prompt you are answering would be overwritten as you type.
+                if asked:
+                    print(f"  {'deleted' if gone else 'kept -- ' + why}")
+                else:
+                    counted = True
+                    print(
+                        f"\rDeleted {total_deleted + deleted} entries...",
+                        end="",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    # You answering is the delay, so it only applies once nobody
+                    # is being asked anything.
+                    if args.delay and number < len(matched):
+                        time.sleep(args.delay)
+            if counted:
+                print(file=sys.stderr)
             total_deleted += deleted
 
             # Nothing went away, so another pass would see the same entries and
             # fail on them again.
-            if not partial or deleted == 0:
+            if stopped or not partial or deleted == 0:
                 break
 
         print(f"Deleted {total_deleted} entries.")
+        if kept:
+            print(f"{kept} left alone, because you said no.")
+        if stopped:
+            # Not a failure. You were asked, and stopping was one of the answers.
+            print("Stopped where you asked; everything after that is untouched.")
         if failures:
             print(f"\n{len(failures)} could not be deleted:")
             print("\n".join(failures[:20]))

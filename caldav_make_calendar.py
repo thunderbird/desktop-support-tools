@@ -25,7 +25,11 @@ after the ticket: an address that says which bug it was for is the difference
 between cleaning up later and guessing.
 
 Nothing is overwritten. If the account already has a calendar at that address,
-or one going by that name, this reports it and sends nothing.
+or one going by that name, this reports it and sends nothing. --confirm shows you
+the address it worked out and asks before sending anything at all.
+
+-u can be left off if CALDAV_USER is set, as CALDAV_PASSWORD already works for
+the password.
 
 Making a calendar does not put it in Thunderbird. Subscribe afterwards with New
 Calendar -> On the Network, which lists what the account has.
@@ -36,10 +40,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from getpass import getpass
-from os import environ
 from xml.sax.saxutils import escape
 
+from caldav_asking import Refused, add_confirmation, add_credentials, agreed, ready
 from caldav_delete_calendars import Account, _path_of
 
 # The body Thundermail's Stalwart answered 201 to on 2026-08-01. RFC 4791 allows
@@ -98,7 +101,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("home", help="the address of the account's calendars")
     parser.add_argument("name", help="what the calendar is called, as Thunderbird shows it")
-    parser.add_argument("-u", "--user", required=True, help="the username to sign in with")
+    add_credentials(parser)
+    add_confirmation(
+        parser,
+        asks="show the address it worked out and ask before making anything",
+        skips="do not ask; nothing here asks unless you pass --confirm",
+    )
     parser.add_argument(
         "--path",
         metavar="SEGMENT",
@@ -112,11 +120,14 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     segment = (args.path or address_for(name)).strip("/")
 
-    # Prompting keeps the password out of your shell history.
-    password = environ.get("CALDAV_PASSWORD") or getpass(f"App password for {args.user}: ")
+    try:
+        user, password = ready(args)
+    except Refused as why:
+        print(str(why), file=sys.stderr)
+        return 1
 
     try:
-        account = Maker(args.home, args.user, password)
+        account = Maker(args.home, user, password)
     except ValueError as error:
         print(str(error), file=sys.stderr)
         return 1
@@ -142,6 +153,16 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {_path_of(href)}")
                 print("Two calendars with one name are indistinguishable in Thunderbird's list,")
                 print("so pick another name, or delete that one first.")
+                return 1
+
+        # The address is worked out from the name, and it is the one thing here
+        # worth seeing before it exists: it is what you subscribe to and what you
+        # match against when you come to clean up.
+        if args.confirm:
+            print(f"About to make {name!r} at")
+            print(f"  https://{account.host}{account.path}{segment}/")
+            if not agreed("Go ahead?"):
+                print("Nothing made.")
                 return 1
 
         made, why = account.make_calendar(segment, name)

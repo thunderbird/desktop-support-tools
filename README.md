@@ -141,17 +141,62 @@ doing this more than once — they list what is already there before they touch
 anything:
 
 ```sh
-HOME_URL='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
-uv run caldav_make_calendar.py "$HOME_URL" "ticket 7067" -u nemo@thundermail.com
-uv run caldav_delete_calendars.py "$HOME_URL" -u nemo@thundermail.com   # dry run
-uv run caldav_delete_events.py "${HOME_URL}ticket-7067/" -u nemo@thundermail.com --everything
+export CALDAV_USER='nemo@thundermail.com'
+export CALDAV_PASSWORD='...'          # or leave it unset and be asked
+
+CAL_HOME='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
+uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"
+uv run caldav_delete_calendars.py "$CAL_HOME"                        # dry run
+uv run caldav_delete_events.py "${CAL_HOME}ticket-7067/" --everything
 ```
+
+All three take the username from `-u`, from `CALDAV_USER`, or by asking, in that
+order, and the app password from `CALDAV_PASSWORD` or by asking. Exporting both
+is worth doing because this is half a dozen commands against one account, and
+leaving `CALDAV_PASSWORD` unset is worth doing because a password you type is a
+password that is not in your shell history.
 
 `caldav_make_calendar.py` works the calendar's address out from its name
 (`ticket 7067` → `.../ticket-7067/`, or give `--path`), and refuses if the
 account already has a calendar at that address or under that name. The `curl`
 below is the same request with nothing in the way, which is what you want when
 it is the server's behaviour you are investigating.
+
+### Being asked, or not being asked
+
+Both cleanup scripts report and change nothing until you add `--delete`, and then
+ask you to type the number of things about to go. Two flags change that, and no
+command takes both:
+
+| | what it does |
+|---|---|
+| *neither* | type the number of things to confirm all of them at once |
+| `--confirm` | ask about each one instead: `y` yes, `n` no, `a` all the rest, `q` stop here |
+| `--yes` | ask nothing |
+
+Neither flag implies `--delete`, so a dry run stays a dry run either way.
+
+`--confirm` is for the part of a reproduction where you do not recognise
+everything that matched:
+
+```
+  Anonymized Data  --  2026-03-04 09:00
+  Delete? [y]es [n]o [a]ll the rest [q]uit: a
+  Not asking again.
+```
+
+`a` is the one that makes it usable on a calendar of hundreds — look at the first
+few, satisfy yourself the right entries are being picked, and stop being asked.
+`q` stops there and keeps everything you have not answered for, which is not a
+failure and does not stop you running it again. Anything you answer `n` to stays
+answered: a server that will only list part of a calendar at a time gets worked
+through in passes, and you are not asked twice about the same entry.
+
+`--yes` is for the other half of the same loop, where you have run the cleanup
+five times already and typing the count is friction rather than safety. On
+`caldav_make_calendar.py` it does nothing, since nothing there asks unless you
+pass `--confirm`; it is accepted so that a loop can pass the same flag to all
+three.
 
 ### What you need first
 
@@ -166,17 +211,19 @@ written `%40`:
 
 ```sh
 CAL_HOME='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
-CAL_USER='nemo@thundermail.com'
 ```
 
-The examples below use `-u "$CAL_USER"`, which prompts for the password. Every URL
+`CAL_HOME` is a shell variable of your own, unlike `CALDAV_USER` and
+`CALDAV_PASSWORD`, which the scripts read. The `curl` examples below use
+`-u "$CALDAV_USER"`, which prompts for the password rather than putting it where
+other people logged into the machine can read it off the process list. Every URL
 needs its **trailing slash** — a calendar is a collection, and some servers
 answer differently without it.
 
 ### See what is there
 
 ```sh
-curl -s -u "$CAL_USER" -X PROPFIND -H 'Depth: 1' \
+curl -s -u "$CALDAV_USER" -X PROPFIND -H 'Depth: 1' \
   -H 'Content-Type: application/xml; charset=utf-8' \
   --data-binary '<?xml version="1.0" encoding="utf-8"?>
 <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -203,7 +250,7 @@ answer it, which is why it stays in the request.
 ### Make one
 
 ```sh
-curl -i -u "$CAL_USER" -X MKCALENDAR \
+curl -i -u "$CALDAV_USER" -X MKCALENDAR \
   -H 'Content-Type: application/xml' \
   --data '<?xml version="1.0" encoding="utf-8"?>
 <C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -234,7 +281,7 @@ normal way: **New Calendar → On the Network**, which lists what the account ha
 ### Delete one
 
 ```sh
-curl -i -u "$CAL_USER" -X DELETE "${CAL_HOME}ticket-7067/"
+curl -i -u "$CALDAV_USER" -X DELETE "${CAL_HOME}ticket-7067/"
 ```
 
 **`204 No Content`** means it is gone — also confirmed against Thundermail on
@@ -248,7 +295,7 @@ the part where it shows you the list first.
 scheduling target is not a thing to gamble on. Empty it instead:
 
 ```sh
-uv run caldav_delete_events.py "${CAL_HOME}default/" -u "$CAL_USER" --everything
+uv run caldav_delete_events.py "${CAL_HOME}default/" --everything
 ```
 
 Afterwards, remove the calendar from Thunderbird too. It keeps its own cached

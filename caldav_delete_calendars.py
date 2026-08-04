@@ -20,7 +20,12 @@ from Thunderbird's Properties dialog with the last part taken off:
     https://mail.example.com/dav/cal/you@example.com/some-calendar/  <- one calendar
     https://mail.example.com/dav/cal/you@example.com/                <- HOME
 
-It reports and changes nothing until you add --delete.
+It reports and changes nothing until you add --delete. With --delete it asks you
+to type the number of calendars first; --delete --confirm asks about each one
+instead, and takes yes, no, all the rest, or stop here. --yes asks nothing.
+
+-u can be left off if CALDAV_USER is set, as CALDAV_PASSWORD already works for
+the password.
 
 **The default calendar is never deleted**, and neither is anything you name with
 --keep. Servers refuse to delete the default anyway, so this asks first rather
@@ -36,11 +41,18 @@ from __future__ import annotations
 import argparse
 import sys
 import xml.etree.ElementTree as ET
-from getpass import getpass
-from os import environ
 from urllib.parse import urlsplit
 
 from anonymize_ics import _count
+from caldav_asking import (
+    NO,
+    QUIT,
+    Asking,
+    Refused,
+    add_confirmation,
+    add_credentials,
+    ready,
+)
 from caldav_delete_events import CALDAV, DAV, Calendar
 
 # What is in the account: every child collection, what kind it is, and what it
@@ -142,7 +154,12 @@ class Account(Calendar):
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("home", help="the address of the account's calendars")
-    parser.add_argument("-u", "--user", required=True, help="the username to sign in with")
+    add_credentials(parser)
+    add_confirmation(
+        parser,
+        asks="ask about each calendar: yes, no, all the rest, or stop here",
+        skips="do not ask to confirm at all; this does not imply --delete",
+    )
     parser.add_argument(
         "--keep",
         action="append",
@@ -157,11 +174,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    # Prompting keeps the password out of your shell history.
-    password = environ.get("CALDAV_PASSWORD") or getpass(f"App password for {args.user}: ")
+    try:
+        user, password = ready(args)
+    except Refused as why:
+        print(str(why), file=sys.stderr)
+        return 1
 
     try:
-        account = Account(args.home, args.user, password)
+        account = Account(args.home, user, password)
     except ValueError as error:
         print(str(error), file=sys.stderr)
         return 1
@@ -212,20 +232,34 @@ def main(argv: list[str] | None = None) -> int:
                   " This was a dry run; add --delete to go ahead.")
             return 0
 
-        print(f"\nThis deletes {_count(len(doomed), 'calendar')} on {account.host},"
-              " contents and all.")
-        print("It cannot be undone from here.")
-        try:
-            if input(f"Type {len(doomed)} to confirm: ").strip() != str(len(doomed)):
-                print("Nothing deleted.")
+        # Typing the number means having read it. --confirm replaces that step
+        # rather than adding to it: being asked about all of them and then about
+        # each of them is one question too many.
+        if not args.yes and not args.confirm:
+            print(f"\nThis deletes {_count(len(doomed), 'calendar')} on {account.host},"
+                  " contents and all.")
+            print("It cannot be undone from here.")
+            try:
+                if input(f"Type {len(doomed)} to confirm: ").strip() != str(len(doomed)):
+                    print("Nothing deleted.")
+                    return 1
+            except EOFError:
+                print("\nNothing deleted.")
                 return 1
-        except EOFError:
-            print("\nNothing deleted.")
-            return 1
 
         print()
-        deleted, failures = 0, []
+        asking = Asking(args.confirm)
+        deleted, kept, stopped, failures = 0, 0, False, []
         for href, name in doomed:
+            if asking.on:
+                answer = asking.about(f"{name}  --  {_path_of(href)}, contents and all")
+                if answer == QUIT:
+                    stopped = True
+                    break
+                if answer == NO:
+                    kept += 1
+                    print(f"  kept     {name} -- you said no")
+                    continue
             gone, why = account.delete_calendar(href)
             if gone:
                 deleted += 1
@@ -235,6 +269,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  kept     {name} -- {why}")
 
         print(f"\nDeleted {_count(deleted, 'calendar')}.")
+        if kept:
+            print(f"{_count(kept, 'calendar')} left alone, because you said no.")
+        if stopped:
+            # Not a failure. You were asked, and stopping was one of the answers.
+            print("Stopped where you asked; everything after that is untouched.")
         if failures:
             print(f"{_count(len(failures), 'calendar')} could not be deleted:")
             print("\n".join(failures))

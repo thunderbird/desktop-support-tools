@@ -26,6 +26,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import caldav_asking as asking_tool  # noqa: E402
 import caldav_delete_calendars as calendars_tool  # noqa: E402
 import caldav_delete_events as events_tool  # noqa: E402
 import caldav_make_calendar as make_tool  # noqa: E402
@@ -33,11 +34,16 @@ from caldav_delete_calendars import Account  # noqa: E402
 from caldav_make_calendar import Maker, address_for  # noqa: E402
 from caldav_delete_events import (  # noqa: E402
     Calendar,
+    described,
     entries_in,
     ids_in,
     looks_scrubbed,
     times_in,
 )
+
+# Which name each tool signs in through, so a test can stand in for the server
+# without caring which of the three it is driving.
+SIGNS_IN = {events_tool: "Calendar", calendars_tool: "Account", make_tool: "Maker"}
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 CALENDARS = sorted(
@@ -47,6 +53,17 @@ CALENDARS = sorted(
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def no_inherited_credentials(monkeypatch) -> None:
+    """Nothing here may depend on what happens to be exported in your shell.
+
+    Both variables are real ones somebody testing against a server will have set,
+    and a test that passes only because of that is worse than no test.
+    """
+    monkeypatch.delenv("CALDAV_USER", raising=False)
+    monkeypatch.delenv("CALDAV_PASSWORD", raising=False)
 
 
 # --------------------------------------------------------------------------
@@ -337,11 +354,50 @@ def server_holding(store: dict[str, str], page: int):
     return reply
 
 
-def run(tool, argv, monkeypatch, calendar, answer="") -> int:
+def answering(monkeypatch, answer) -> None:
+    """Type this at whatever gets asked, or these in turn if there are several.
+
+    Running out is end of input, not a repeat: a test that asks one question more
+    than it meant to must fail rather than answer itself.
+    """
+    if not isinstance(answer, list):
+        monkeypatch.setattr("builtins.input", lambda *_: answer)
+        return
+
+    queue = list(answer)
+
+    def typed(*_):
+        if not queue:
+            raise EOFError
+        return queue.pop(0)
+
+    monkeypatch.setattr("builtins.input", typed)
+
+
+def run(tool, argv, monkeypatch, calendar, answer="", terminal=True) -> int:
     monkeypatch.setenv("CALDAV_PASSWORD", "p")
-    monkeypatch.setattr(tool, "Calendar" if tool is events_tool else "Account", lambda *a, **k: calendar)
-    monkeypatch.setattr("builtins.input", lambda *_: answer)
+    monkeypatch.setattr(tool, SIGNS_IN[tool], lambda *a, **k: calendar)
+    monkeypatch.setattr(asking_tool, "interactive", lambda: terminal)
+    answering(monkeypatch, answer)
     return tool.main(argv)
+
+
+def signed_in_as(tool, argv, monkeypatch, calendar, answer="", terminal=True):
+    """Run a tool and report the credentials it signed in with, if it got that far.
+
+    Neither variable is set here, unlike run(), because what is being tested is
+    where the credentials came from. Each test sets what it means to be there.
+    """
+    used: list[tuple[str, str]] = []
+
+    def sign_in(url, user, password, **rest):
+        used.append((user, password))
+        return calendar
+
+    monkeypatch.setattr(tool, SIGNS_IN[tool], sign_in)
+    monkeypatch.setattr(asking_tool, "interactive", lambda: terminal)
+    answering(monkeypatch, answer)
+    return tool.main(argv), used
 
 
 def test_a_capped_calendar_is_emptied_in_passes(monkeypatch, capsys) -> None:
@@ -512,10 +568,8 @@ def test_pointing_at_one_calendar_says_so(monkeypatch, capsys) -> None:
 # Making a calendar
 
 
-def run_make(argv, monkeypatch, account) -> int:
-    monkeypatch.setenv("CALDAV_PASSWORD", "p")
-    monkeypatch.setattr(make_tool, "Maker", lambda *a, **k: account)
-    return make_tool.main(argv)
+def run_make(argv, monkeypatch, account, answer="", terminal=True) -> int:
+    return run(make_tool, argv, monkeypatch, account, answer=answer, terminal=terminal)
 
 
 ONE_CALENDAR = multistatus(collection("/dav/cal/you/default", "Personal", "calendar"))
@@ -603,3 +657,334 @@ def test_a_bad_password_says_to_use_an_app_password(monkeypatch, capsys) -> None
     code = run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u"], monkeypatch, account)
     assert code == 1
     assert "app password" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------
+# Signing in
+
+# The environment and a question do the same job here, and both matter. Reading
+# CALDAV_USER is what stops the testing loop repeating -u on every command;
+# asking for it is what stops a forgotten export becoming an unexplained 401.
+
+
+@pytest.mark.parametrize(
+    "tool,argv",
+    [
+        (events_tool, ["https://host/c/"]),
+        (calendars_tool, ["https://host/dav/cal/you/"]),
+        (make_tool, ["https://host/dav/cal/you/", "scratch"]),
+    ],
+    ids=["events", "calendars", "make"],
+)
+def test_all_three_take_the_credentials_from_the_environment(tool, argv, monkeypatch) -> None:
+    kind = {events_tool: Calendar, calendars_tool: Account, make_tool: Maker}[tool]
+    calendar = kind(argv[0], "ignored", "ignored")
+    talking(calendar, lambda *_: (207, multistatus()))
+    monkeypatch.setenv("CALDAV_USER", "you@example.com")
+    monkeypatch.setenv("CALDAV_PASSWORD", "secret")
+    _, used = signed_in_as(tool, argv, monkeypatch, calendar)
+    assert used == [("you@example.com", "secret")]
+
+
+def test_the_flag_beats_the_environment(monkeypatch) -> None:
+    """Otherwise an export you have forgotten about silently wins an argument."""
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, lambda *_: (207, multistatus()))
+    monkeypatch.setenv("CALDAV_USER", "stale@example.com")
+    monkeypatch.setenv("CALDAV_PASSWORD", "secret")
+    _, used = signed_in_as(
+        events_tool, ["https://host/c/", "-u", "you@example.com"], monkeypatch, calendar
+    )
+    assert used == [("you@example.com", "secret")]
+
+
+def test_the_username_is_asked_for_when_nothing_else_says(monkeypatch) -> None:
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, lambda *_: (207, multistatus()))
+    monkeypatch.setenv("CALDAV_PASSWORD", "secret")
+    _, used = signed_in_as(
+        events_tool, ["https://host/c/"], monkeypatch, calendar, answer=["you@example.com"]
+    )
+    assert used == [("you@example.com", "secret")]
+
+
+def test_no_username_stops_rather_than_signing_in_as_nobody(monkeypatch, capsys) -> None:
+    """An empty answer used to be a required flag, so it must not become a 401."""
+    calendar = Calendar("https://host/c/", "u", "p")
+    code, used = signed_in_as(
+        events_tool, ["https://host/c/"], monkeypatch, calendar, answer=[""]
+    )
+    assert code == 1
+    assert not used, "nothing should be sent without a username"
+    assert "CALDAV_USER" in capsys.readouterr().err
+
+
+def test_no_app_password_says_where_to_get_one(monkeypatch, capsys) -> None:
+    calendar = Calendar("https://host/c/", "u", "p")
+    monkeypatch.setattr(asking_tool, "getpass", lambda *_: "")
+    code, used = signed_in_as(events_tool, ["https://host/c/", "-u", "u"], monkeypatch, calendar)
+    assert code == 1
+    assert not used
+    assert "app password" in capsys.readouterr().err
+
+
+def test_confirm_gives_up_before_asking_for_a_password(monkeypatch, capsys) -> None:
+    """Learning nobody can answer is much better news before you type a password."""
+    calendar = Calendar("https://host/c/", "u", "p")
+    asked = []
+    monkeypatch.setattr(asking_tool, "getpass", lambda *_: asked.append(1) or "p")
+    code, used = signed_in_as(
+        events_tool, ["https://host/c/", "--confirm"], monkeypatch, calendar, terminal=False
+    )
+    assert code == 1
+    assert not asked and not used
+    assert "not a terminal" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "tool,argv",
+    [
+        (events_tool, ["https://host/c/", "-u", "u"]),
+        (calendars_tool, ["https://host/dav/cal/you/", "-u", "u"]),
+        (make_tool, ["https://host/dav/cal/you/", "scratch", "-u", "u"]),
+    ],
+    ids=["events", "calendars", "make"],
+)
+def test_confirm_and_yes_cannot_both_be_given(tool, argv) -> None:
+    """They are opposite answers to the same question, so asking for both is a mistake."""
+    with pytest.raises(SystemExit) as raised:
+        tool.main(argv + ["--confirm", "--yes"])
+    assert raised.value.code == 2
+
+
+# --------------------------------------------------------------------------
+# Being asked, and not being asked
+
+
+def dated(summary: str, start: str, uid: str = "u") -> str:
+    """One entry the scrubber would recognise as its own, at a time you can name."""
+    return (
+        "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\n"
+        f"UID:{uid}\r\nSUMMARY:{summary}\r\nDTSTART:{start}\r\n"
+        "END:VEVENT\r\nEND:VCALENDAR"
+    )
+
+
+SCRUBBED_AT = {
+    f"/c/{day}.ics": dated("Anonymized Data", f"2026030{day}T090000Z", uid=str(day))
+    for day in (1, 2, 3)
+}
+
+
+def test_an_entry_says_what_it_is_and_when(monkeypatch) -> None:
+    """The address is a server-generated name and tells you nothing you recognise."""
+    assert described(dated("Team standup", "20260304T090000Z")) == (
+        "Team standup  --  2026-03-04 09:00"
+    )
+    assert described(dated("Sports day", "20260304")) == "Sports day  --  2026-03-04"
+    assert described(dated("Lunch\\, then gym", "20260304")) == "Lunch, then gym  --  2026-03-04"
+    assert described(dated("Weekly", "whenever")) == "Weekly  --  whenever"
+    assert described("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:x\r\nEND:VEVENT\r\nEND:VCALENDAR") == (
+        "(no title)  --  no start time"
+    )
+    assert described(dated("x" * 80, "20260304")).startswith("x" * 57 + "...")
+
+
+def test_confirming_keeps_what_you_say_no_to(monkeypatch, capsys) -> None:
+    store = dict(SCRUBBED_AT)
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, server_holding(store, page=10))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--delete", "--confirm"],
+               monkeypatch, calendar, answer=["y", "n", "y"])
+    assert code == 0
+    assert list(store) == ["/c/2.ics"]
+    out = capsys.readouterr().out
+    assert "2026-03-01 09:00" in out
+    assert "1 left alone" in out
+
+
+def test_all_the_rest_stops_the_asking(monkeypatch, capsys) -> None:
+    """The answer that makes this safe to turn on without knowing how many there are.
+
+    Two answers for three entries: a third question would run the queue dry and
+    end the run, so this passing is the evidence that it stopped asking.
+    """
+    store = dict(SCRUBBED_AT)
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, server_holding(store, page=10))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--delete", "--confirm"],
+               monkeypatch, calendar, answer=["y", "a"])
+    assert code == 0
+    assert store == {}
+
+
+def test_stopping_is_not_a_failure(monkeypatch, capsys) -> None:
+    store = dict(SCRUBBED_AT)
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, server_holding(store, page=10))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--delete", "--confirm"],
+               monkeypatch, calendar, answer=["y", "q"])
+    assert code == 0, "you were asked, and stopping was one of the answers"
+    assert list(store) == ["/c/2.ics", "/c/3.ics"]
+    out = capsys.readouterr().out
+    assert "Stopped where you asked" in out
+    assert "unsubscribe" in out
+
+
+def test_a_declined_entry_is_not_offered_again_next_pass(monkeypatch, capsys) -> None:
+    """A capped calendar comes round again, and so would a question you have answered.
+
+    Three answers for three entries across two passes. The entry declined in the
+    first pass is listed again in the second, and asking about it would run the
+    queue dry before the last entry was reached.
+    """
+    store = dict(SCRUBBED_AT)
+    calendar = Calendar("https://host/c/", "u", "p", page=2)
+    talking(calendar, server_holding(store, page=2))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--delete", "--confirm"],
+               monkeypatch, calendar, answer=["n", "y", "y"])
+    assert code == 0
+    assert list(store) == ["/c/1.ics"]
+    assert "1 left alone" in capsys.readouterr().out
+
+
+def test_emptying_reads_only_the_entry_it_is_asking_about(monkeypatch, capsys) -> None:
+    """--everything reads nothing, so a question has to fetch its own entry.
+
+    One request per question, which is nothing next to the time you take to
+    answer it, and answering "all the rest" goes back to reading nothing at all.
+    """
+    store = {f"/c/{i}.ics": MY_ENTRY for i in range(1, 4)}
+    calendar = Calendar("https://host/c/", "u", "p")
+    reads = []
+    server = server_holding(store, page=10)
+
+    def counting(method, path, body):
+        if "calendar-multiget" in body:
+            reads.append(body.count("<D:href>"))
+        return server(method, path, body)
+
+    talking(calendar, counting)
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--everything", "--delete", "--confirm"],
+               monkeypatch, calendar, answer=["y", "a"])
+    assert code == 0
+    assert store == {}
+    assert reads == [1, 1], "one entry per question, and none once it stopped asking"
+    assert "Dentist" in capsys.readouterr().out
+
+
+def test_confirming_each_entry_replaces_typing_the_number(monkeypatch, capsys) -> None:
+    """Being asked about all of them and then about each of them is one question too many.
+
+    The single answer here is the per-entry one. If the bulk confirmation still
+    ran it would take "y" for the count, not match, and delete nothing.
+    """
+    store = {"/c/a.ics": MY_ENTRY}
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, server_holding(store, page=10))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--everything", "--delete", "--confirm"],
+               monkeypatch, calendar, answer=["y"])
+    assert code == 0
+    assert store == {}
+
+
+def test_yes_empties_a_calendar_without_asking(monkeypatch, capsys) -> None:
+    """The answer given would refuse the confirmation, so reaching empty proves it never ran."""
+    store = {"/c/a.ics": MY_ENTRY}
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, server_holding(store, page=10))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--everything", "--delete", "--yes"],
+               monkeypatch, calendar, answer="no")
+    assert code == 0
+    assert store == {}
+
+
+def test_yes_does_not_mean_delete(monkeypatch, capsys) -> None:
+    """Skipping the question is not the same as answering it, and a dry run stays one."""
+    store = {"/c/theirs.ics": SCRUBBED_ENTRY}
+    calendar = Calendar("https://host/c/", "u", "p")
+    talking(calendar, server_holding(store, page=10))
+    code = run(events_tool, ["https://host/c/", "-u", "u", "--yes"], monkeypatch, calendar)
+    assert code == 0
+    assert store, "--yes answers a question; it does not ask for the deletion"
+    assert "dry run" in capsys.readouterr().out
+
+
+def test_confirming_picks_which_calendars_go(monkeypatch, capsys) -> None:
+    account = Account("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool, ["https://host/dav/cal/you/", "-u", "u", "--delete", "--confirm"],
+               monkeypatch, account, answer=["n", "y"])
+    assert code == 0
+    assert deleted == ["/dav/cal/you/6e37/"]
+    assert "1 calendar left alone" in capsys.readouterr().out
+
+
+def test_stopping_leaves_the_calendars_after_it(monkeypatch, capsys) -> None:
+    account = Account("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool, ["https://host/dav/cal/you/", "-u", "u", "--delete", "--confirm"],
+               monkeypatch, account, answer=["q"])
+    assert code == 0
+    assert deleted == []
+    assert "Stopped where you asked" in capsys.readouterr().out
+
+
+def test_yes_deletes_the_calendars_without_asking(monkeypatch, capsys) -> None:
+    account = Account("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--keep", "ticket 7067",
+                "--delete", "--yes"],
+               monkeypatch, account, answer="no")
+    assert code == 0
+    assert deleted == ["/dav/cal/you/6e37/"]
+
+
+def test_confirming_shows_the_address_before_making_it(monkeypatch, capsys) -> None:
+    """The address is worked out from the name, and is what you subscribe to later."""
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    calls = talking(
+        account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (201, b"")
+    )
+    code = run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u", "--confirm"],
+                    monkeypatch, account, answer="y")
+    assert code == 0
+    assert ("MKCALENDAR", "/dav/cal/you/ticket-7067/") in calls
+    assert "/dav/cal/you/ticket-7067/" in capsys.readouterr().out
+
+
+def test_declining_makes_nothing(monkeypatch, capsys) -> None:
+    account = Maker("https://host/dav/cal/you/", "u", "p")
+    calls = talking(
+        account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (201, b"")
+    )
+    code = run_make(["https://host/dav/cal/you/", "ticket 7067", "-u", "u", "--confirm"],
+                    monkeypatch, account, answer="n")
+    assert code == 1, "the calendar you asked for does not exist, so nothing may follow this"
+    assert not [method for method, _ in calls if method == "MKCALENDAR"]
+    assert "Nothing made" in capsys.readouterr().out
