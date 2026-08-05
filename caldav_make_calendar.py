@@ -160,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         # match against when you come to clean up.
         if args.confirm:
             print(f"About to make {name!r} at")
-            print(f"  https://{account.host}{account.path}{segment}/")
+            print(f"  {account.address()}{segment}/")
             if not agreed("Go ahead?"):
                 print("Nothing made.")
                 return 1
@@ -176,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         print(f"Made {name!r} at")
-        print(f"  https://{account.host}{account.path}{segment}/")
+        print(f"  {account.address()}{segment}/")
         print("\nSubscribe to it in Thunderbird with New Calendar -> On the Network,")
         print("and delete it afterwards with caldav_delete_calendars.py.")
         return 0

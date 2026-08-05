@@ -128,12 +128,12 @@ An organiser with no address stays empty rather than being given one. Exchange
 exports quite often look like that, and inventing a person who was never there
 is its own kind of wrong answer.
 
-## Making and deleting a test calendar by hand
+## Making, filling and deleting a test calendar by hand
 
 Reproducing a calendar bug means making a calendar, filling it with a scrubbed
 copy of somebody's data, and throwing it away afterwards — over and over, and
-never against a calendar you actually use. Two `curl` requests do the making and
-the throwing away, with no client in the way to cache, retry or reinterpret
+never against a calendar you actually use. A `curl` request each does the making
+and the throwing away, with no client in the way to cache, retry or reinterpret
 anything.
 
 There are scripts for all of it, and they are the better way round if you are
@@ -146,11 +146,12 @@ export CALDAV_PASSWORD='...'          # or leave it unset and be asked
 
 CAL_HOME='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
 uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"
+uv run caldav_import_ics.py "${CAL_HOME}ticket-7067/" scrubbed.ics    # dry run
 uv run caldav_delete_calendars.py "$CAL_HOME"                        # dry run
 uv run caldav_delete_events.py "${CAL_HOME}ticket-7067/" --everything
 ```
 
-All three take the username from `-u`, from `CALDAV_USER`, or by asking, in that
+All four take the username from `-u`, from `CALDAV_USER`, or by asking, in that
 order, and the app password from `CALDAV_PASSWORD` or by asking. Exporting both
 is worth doing because this is half a dozen commands against one account, and
 leaving `CALDAV_PASSWORD` unset is worth doing because a password you type is a
@@ -164,9 +165,10 @@ it is the server's behaviour you are investigating.
 
 ### Being asked, or not being asked
 
-Both cleanup scripts report and change nothing until you add `--delete`, and then
-ask you to type the number of things about to go. Two flags change that, and no
-command takes both:
+Both cleanup scripts report and change nothing until you add `--delete`, and
+`caldav_import_ics.py` sends nothing until you add `--upload`. Then they ask you
+to type the number of things about to go. Two flags change that, and no command
+takes both:
 
 | | what it does |
 |---|---|
@@ -174,7 +176,8 @@ command takes both:
 | `--confirm` | ask about each one instead: `y` yes, `n` no, `a` all the rest, `q` stop here |
 | `--yes` | ask nothing |
 
-Neither flag implies `--delete`, so a dry run stays a dry run either way.
+Neither flag implies `--delete` or `--upload`, so a dry run stays a dry run
+either way.
 
 `--confirm` is for the part of a reproduction where you do not recognise
 everything that matched:
@@ -192,11 +195,15 @@ failure and does not stop you running it again. Anything you answer `n` to stays
 answered: a server that will only list part of a calendar at a time gets worked
 through in passes, and you are not asked twice about the same entry.
 
+The import asks the same three-way question, worded `Send?`, and `a` does the
+same job there — look at the first few entries, satisfy yourself the right file is
+going up, and stop being asked.
+
 `--yes` is for the other half of the same loop, where you have run the cleanup
 five times already and typing the count is friction rather than safety. On
 `caldav_make_calendar.py` it does nothing, since nothing there asks unless you
 pass `--confirm`; it is accepted so that a loop can pass the same flag to all
-three.
+four.
 
 ### What you need first
 
@@ -270,13 +277,84 @@ RFC 4791 allows more properties in that body —
 not tasks, for one. None of them have been tried here, so add them knowing that;
 the two-line body above is the part that is known to work.
 
-Entries go in one `PUT` per entry, to `<calendar>/<something>.ics`; Thunderbird's
-**Import** does exactly that, one request per event. There is a worked example,
-including reading the `ETag` back, in
-[issue #13](https://github.com/thunderbird/desktop-support-tools/issues/13).
-
 Thunderbird will not notice the new calendar by itself. Subscribe to it the
 normal way: **New Calendar → On the Network**, which lists what the account has.
+
+### Fill one
+
+```sh
+uv run caldav_import_ics.py "${CAL_HOME}ticket-7067/" scrubbed.ics           # dry run
+uv run caldav_import_ics.py "${CAL_HOME}ticket-7067/" scrubbed.ics --upload
+```
+
+**Thunderbird's Import is still the right way to do the first round.** It is the
+code path the reporter went through, so a bug that lives there only shows up that
+way. This is for the rounds after it — the fifth import of the same file, and the
+ones where what you are watching is the server, which means keeping the client
+out of the way.
+
+Entries go in one `PUT` per entry, to `<calendar>/<something>.ics`; Thunderbird's
+Import does exactly that, one request per event, because CalDAV has no "here is
+the whole file" request. What travels in one request is one *entry*, which is not
+the same as one component, and the difference is where a hand-rolled import goes
+wrong:
+
+- **A repeating entry and its changed occurrences share an identifier** and go up
+  together. Sent separately, the exception becomes an entry of its own — two
+  meetings in the calendar, one of them the occurrence that was meant to move.
+- **A timezone definition is carried into every entry that names one**, since an
+  entry naming a timezone its own request does not define is one a server may
+  refuse. Where the file names a zone it never defines, the report says so.
+- **`METHOD` is dropped.** It says what a calendar was sent *for* — `PUBLISH`,
+  `REQUEST` — and RFC 4791 does not allow it on a stored entry. Exporters write it
+  anyway.
+- **An entry with no identifier is left out and reported**, not given one.
+
+Each entry's address is worked out from its identifier, which is what makes the
+loop repeatable: **nothing already in the calendar is overwritten.** The request
+asks the server to refuse rather than replace, so a second run of the same file
+reports the entries as already there and sends the rest. That is also the answer
+to a server that starts rate-limiting you at entry 400 — run it again, or add
+`--delay`. `--replace` overwrites deliberately, and asks you to type the count
+first.
+
+Afterwards the same file names what it imported:
+
+```sh
+uv run caldav_delete_events.py "${CAL_HOME}ticket-7067/" --ids scrubbed.ics
+```
+
+There is a worked `PUT` by hand, including reading the `ETag` back, in
+[issue #13](https://github.com/thunderbird/desktop-support-tools/issues/13) — that
+is the shape to reach for when it is one request you want rather than an import.
+
+#### It refuses a calendar that still identifies people
+
+```
+$ uv run caldav_import_ics.py "$CAL" Calendar.ics
+This calendar still identifies people, so it is not going to a server:
+  line 41: SUMMARY still holds something that identifies someone
+  the address someone@example.org is still in this file
+  ... and 6 more findings
+
+Scrub it first, and send the scrubbed copy:
+  uv run anonymize_ics.py CALENDAR.ics -o scrubbed.ics
+```
+
+The check is `anonymize_ics.py --check`'s, reused rather than reimplemented, so
+there is one definition of clean. It runs before the password is asked for,
+because being told the file is not going anywhere is better news before you have
+typed one.
+
+`--unscrubbed` sends it anyway **and only to a server on this machine** —
+loopback, a private address, or a `.local` name. Somebody else's calendar may be
+reproduced against a local Stalwart in Docker, which can be wiped completely, and
+never against production, where a `DELETE` afterwards does not reach the backups,
+the server logs, or any other client subscribed to that account. See step 7 of
+[issue #13](https://github.com/thunderbird/desktop-support-tools/issues/13) for
+what to do instead: the scrubber's fidelity rule makes the list of things a scrub
+could have changed an enumerable one, and every item on it can be tested
+synthetically.
 
 ### Delete one
 

@@ -3,10 +3,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"""What the three CalDAV tools ask you: who you are, and whether you meant it.
+"""What the CalDAV tools ask you: who you are, and whether you meant it.
 
-All three sign in the same way and all three do things worth being sure about,
-so the asking lives here once rather than three times over.
+All four sign in the same way and all four do things worth being sure about, so
+the asking lives here once rather than four times over.
 
 The app password comes from CALDAV_PASSWORD or a prompt, which is what keeps it
 out of your shell history. The username works the same way for a different
@@ -127,8 +127,9 @@ class Asking:
     already answered.
     """
 
-    def __init__(self, on: bool):
+    def __init__(self, on: bool, verb: str = "Delete"):
         self.on = on
+        self.verb = verb
         self.declined: set[str] = set()
 
     def about(self, description: str) -> str:
@@ -142,7 +143,9 @@ class Asking:
         print(f"  {description}")
         while True:
             try:
-                answer = input("  Delete? [y]es [n]o [a]ll the rest [q]uit: ").strip().lower()
+                answer = input(
+                    f"  {self.verb}? [y]es [n]o [a]ll the rest [q]uit: "
+                ).strip().lower()
             except EOFError:
                 print()
                 return QUIT

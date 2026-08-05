@@ -56,6 +56,9 @@ uv run parse_troubleshooting.py fixtures/thundermail-correct.txt
 pbpaste | uv run parse_troubleshooting.py                 # parse a real paste
 uv run anonymize_ics.py Calendar.ics -o scrubbed.ics      # scrub a calendar
 uv run anonymize_ics.py --check scrubbed.ics              # audit a scrubbed one
+uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"  # a calendar to test in
+uv run caldav_import_ics.py "$CAL" scrubbed.ics           # dry run; --upload sends it
+uv run caldav_delete_events.py "$CAL" --everything        # dry run; --delete empties it
 python3 -m http.server 8000                               # serve the webapp
 ```
 
@@ -306,7 +309,52 @@ preference.
 **No JavaScript twin, and that is not an oversight.** "The parser exists twice"
 applies to the tools behind the web page, which exist so somebody can paste
 something and get an answer. This one is a step support staff run over a file
-before attaching it to a bug; it never had a page to be half of.
+before attaching it to a bug; it never had a page to be half of. The same goes
+for the four CalDAV tools: a browser cannot send `MKCALENDAR` or a cross-origin
+`PUT` to somebody's mail server, and it should not be asked to.
+
+## Sending a calendar back up: `caldav_import_ics.py`
+
+**Thunderbird's Import stays the right way to do the first round.** It is the
+code path the reporter went through, so a bug that lives there only appears that
+way. This tool is for the rounds after it, and for the ones where the client is
+what you are trying to keep out of the way.
+
+**One request holds one *entry*, which is not one component.** CalDAV has no
+"here is the whole file" request, so the file has to be split, and the split is
+by `UID`:
+
+- **A series and its `RECURRENCE-ID` overrides are one entry** and go in one
+  request, master first. Split apart, the exception becomes an entry of its own —
+  the calendar gains a meeting instead of moving one. `ics-recurrence-override`
+  is the fixture.
+- **`VTIMEZONE` is copied into every request that names it**, matched on the
+  `TZID` parameter, quoted or not. A zone named but never defined is reported, not
+  invented: `ics-identifying-params` names `America/Toronto` and defines nothing.
+- **`METHOD` is dropped**, since RFC 4791 bars it on a stored entry, and exporters
+  write it anyway.
+- **No `UID` means the entry is left out and counted.** Generating one would
+  import something the file does not say.
+- Values are re-folded, not copied line for line, so the reader is `_unfold`'s
+  logical lines and the writer is `_fold` — 75 **octets**, as in the scrubber.
+
+**Nothing already in the calendar is overwritten**, and that is what makes the
+loop usable rather than merely safe. Each entry's address comes from its
+identifier, so it is the same every run, and the `PUT` carries `If-None-Match: *`
+so the server refuses instead of replacing. An entry already there is reported as
+left alone, not as a failure — which is why a run that a rate limit interrupted at
+entry 400 is finished by running it again. `--replace` is the deliberate opposite
+and asks for the count first.
+
+**The refusal reuses `audit()`.** A calendar that still identifies somebody is not
+sent, by the same definition of clean that `anonymize_ics.py --check` reports, and
+the check happens *before* the password is asked for. `--unscrubbed` is accepted
+only when the host is loopback, a private address, or a `.local` name: somebody
+else's calendar may be reproduced against a local Stalwart and never against
+production, where a `DELETE` afterwards reaches neither the backups, nor the
+logs, nor the other clients on that account. This is the one rule in the tool that
+is a policy decision rather than a protocol one, so it is enforced in code rather
+than written in the docs.
 
 ## Thundermail expected settings
 
@@ -455,6 +503,11 @@ verdicts.py                 judge parsed settings against settings.json
 parse_troubleshooting.py    CLI: dump or fragment -> JSON
 check_settings.py           CLI: dump or fragment -> per-account verdicts
 anonymize_ics.py            CLI: calendar -> the same calendar without the people
+caldav_asking.py            shared by the CalDAV tools: credentials, and confirming
+caldav_make_calendar.py     CLI: make a calendar to test in, which Thunderbird cannot
+caldav_import_ics.py        CLI: calendar file -> one entry per request on a server
+caldav_delete_events.py     CLI: take a scrubbed import back off a server
+caldav_delete_calendars.py  CLI: delete the test calendars, keeping the default
 troubleshooting_info.js     the parser again, for the browser
 verdicts.js                 the engine again, for the browser
 index.html, app.js, style.css   the webapp; app.js only reads the textarea

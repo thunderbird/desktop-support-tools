@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"""Tests for the three CalDAV tools: making a calendar, and the two that clean up.
+"""Tests for the CalDAV tools: making a calendar, filling it, and clearing it out.
 
 Everything here runs offline. The server is a stand-in that answers from a
 script of replies, so what is under test is the part that gets a real calendar
@@ -29,9 +29,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import caldav_asking as asking_tool  # noqa: E402
 import caldav_delete_calendars as calendars_tool  # noqa: E402
 import caldav_delete_events as events_tool  # noqa: E402
+import caldav_import_ics as import_tool  # noqa: E402
 import caldav_make_calendar as make_tool  # noqa: E402
 from caldav_delete_calendars import Account  # noqa: E402
 from caldav_make_calendar import Maker, address_for  # noqa: E402
+from caldav_import_ics import (  # noqa: E402
+    Importer,
+    components_in,
+    entries_to_send,
+    on_this_machine,
+)
+from caldav_import_ics import address_for as address_for_entry  # noqa: E402  (make_tool has one too)
 from caldav_delete_events import (  # noqa: E402
     Calendar,
     described,
@@ -42,8 +50,13 @@ from caldav_delete_events import (  # noqa: E402
 )
 
 # Which name each tool signs in through, so a test can stand in for the server
-# without caring which of the three it is driving.
-SIGNS_IN = {events_tool: "Calendar", calendars_tool: "Account", make_tool: "Maker"}
+# without caring which of them it is driving.
+SIGNS_IN = {
+    events_tool: "Calendar",
+    calendars_tool: "Account",
+    make_tool: "Maker",
+    import_tool: "Importer",
+}
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 CALENDARS = sorted(
@@ -613,6 +626,19 @@ def test_a_name_that_is_markup_does_not_break_the_request(monkeypatch) -> None:
     ET.fromstring(made)
 
 
+def test_the_address_it_reports_is_the_one_it_used(monkeypatch, capsys) -> None:
+    """It is printed to be copied into Thunderbird, so the scheme and port matter.
+
+    All four tools share one assembler for this, because a hand-built
+    https://{host}{path} claims TLS the request never asked for and loses the port
+    a local server is reached on.
+    """
+    account = Maker("http://127.0.0.1:8080/dav/cal/you/", "u", "p")
+    talking(account, lambda method, *_: (207, ONE_CALENDAR) if method == "PROPFIND" else (201, b""))
+    run_make(["http://127.0.0.1:8080/dav/cal/you/", "ticket 7067", "-u", "u"], monkeypatch, account)
+    assert "http://127.0.0.1:8080/dav/cal/you/ticket-7067/" in capsys.readouterr().out
+
+
 def test_an_address_already_in_use_is_left_alone(monkeypatch, capsys) -> None:
     """Nothing here overwrites a calendar, because its contents would go too."""
     account = Maker("https://host/dav/cal/you/", "u", "p")
@@ -660,6 +686,452 @@ def test_a_bad_password_says_to_use_an_app_password(monkeypatch, capsys) -> None
 
 
 # --------------------------------------------------------------------------
+# Filling a calendar
+#
+# What is under test is the splitting: CalDAV takes one entry per request, and a
+# file does not arrive divided into entries. Getting that wrong is not a crash --
+# the entries land, and a repeating meeting quietly loses its exceptions.
+
+
+def event(uid: str, *lines: str) -> str:
+    extra = "".join(f"{line}\r\n" for line in lines)
+    return (
+        f"BEGIN:VEVENT\r\nUID:{uid}\r\nDTSTAMP:20260101T000000Z\r\n"
+        f"DTSTART:20260601T090000Z\r\n{extra}END:VEVENT\r\n"
+    )
+
+
+def calendar_of(*blocks: str, header: str = "VERSION:2.0\r\nPRODID:-//Test//EN\r\n") -> str:
+    return "BEGIN:VCALENDAR\r\n" + header + "".join(blocks) + "END:VCALENDAR\r\n"
+
+
+TIMEZONE = (
+    "BEGIN:VTIMEZONE\r\nTZID:America/Toronto\r\nBEGIN:STANDARD\r\n"
+    "DTSTART:19701101T020000\r\nTZOFFSETFROM:-0400\r\nTZOFFSETTO:-0500\r\n"
+    "END:STANDARD\r\nEND:VTIMEZONE\r\n"
+)
+
+CALENDAR_HERE = multistatus(collection("/c/", "ticket 7067", "calendar"))
+
+
+def putting(calendar: Importer, held: dict[str, str] | None = None):
+    """A server that stores entries, and remembers every request made to it.
+
+    Its own stub rather than talking(), because what several of these assert is a
+    request header -- the one asking the server not to overwrite anything.
+    """
+    stored = {} if held is None else held
+    made: list[tuple[str, str, dict, str]] = []
+
+    def request(method, path, body=None, headers=None):
+        made.append((method, path, headers or {}, body or ""))
+        if method != "PUT":
+            return (207, CALENDAR_HERE)
+        if (headers or {}).get("If-None-Match") == "*" and path in stored:
+            return (412, b"")
+        stored[path] = body or ""
+        return (201, b"")
+
+    calendar.request = request
+    return made, stored
+
+
+def run_import(argv, monkeypatch, calendar, answer="") -> int:
+    return run(import_tool, argv, monkeypatch, calendar, answer=answer)
+
+
+def scrubbed(name: str) -> str:
+    return str(FIXTURES / f"{name}.expected.ics")
+
+
+def test_a_series_and_its_changed_occurrence_go_in_one_request() -> None:
+    """They are one entry stored in one place, and the server keys them on that.
+
+    Sent separately, the exception becomes an entry of its own: two meetings in
+    the calendar, one of them the occurrence that was meant to move.
+    """
+    sending, _ = entries_to_send(read(FIXTURES / "ics-recurrence-override.expected.ics"))
+    assert len(sending) == 1
+    assert sending[0].components == 2
+    assert "RECURRENCE-ID" in sending[0].body
+    # The series before its exception: a changed occurrence is a change to
+    # something, and a reader that meets it first has nothing to change.
+    assert sending[0].body.index("RRULE") < sending[0].body.index("RECURRENCE-ID")
+
+
+def test_each_entry_is_its_own_request() -> None:
+    sending, _ = entries_to_send(read(FIXTURES / "ics-identities.expected.ics"))
+    assert len(sending) == 3
+    assert len({entry.segment for entry in sending}) == 3
+
+
+def test_an_alarm_travels_with_its_entry() -> None:
+    """The opposite of what matching wants, which is why the reader is a second one.
+
+    caldav_delete_events.py leaves nested components out, because an alarm's own
+    duration is not the meeting's. Here the alarm is part of what was imported and
+    dropping it would import something the file does not say.
+    """
+    text = calendar_of(event("a", "BEGIN:VALARM", "TRIGGER:-PT15M", "END:VALARM"))
+    sending, _ = entries_to_send(text)
+    assert "BEGIN:VALARM" in sending[0].body
+    assert "TRIGGER:-PT15M" in sending[0].body
+
+
+def test_a_timezone_is_carried_into_the_entry_that_names_it() -> None:
+    """An entry naming a timezone its request does not define is one a server may refuse."""
+    text = calendar_of(
+        TIMEZONE,
+        event("names-it", "DTEND;TZID=America/Toronto:20260601T100000"),
+        event("does-not"),
+    )
+    sending, report = entries_to_send(text)
+    bodies = {entry.uid: entry.body for entry in sending}
+    assert "BEGIN:VTIMEZONE" in bodies["names-it"]
+    assert "BEGIN:VTIMEZONE" not in bodies["does-not"]
+    assert not report["undefined_timezones"]
+    assert report["timezones"] == 1
+
+
+def test_a_timezone_nothing_refers_to_is_counted_as_not_sent() -> None:
+    """It cannot change anything, and dropping it silently is still a change."""
+    sending, report = entries_to_send(calendar_of(TIMEZONE, event("a")))
+    assert "BEGIN:VTIMEZONE" not in sending[0].body
+    assert report["timezones"] == 0
+    assert report["unused_timezones"] == ["America/Toronto"]
+
+
+def test_a_timezone_the_file_never_defines_is_reported() -> None:
+    """Fixture and reality both: an export can name a zone and define nothing."""
+    _, report = entries_to_send(read(FIXTURES / "ics-identifying-params.expected.ics"))
+    assert report["undefined_timezones"] == ["America/Toronto"]
+
+
+def test_a_quoted_timezone_name_is_read_as_a_name() -> None:
+    text = calendar_of(TIMEZONE, event("a", 'DTEND;TZID="America/Toronto":20260601T100000'))
+    sending, report = entries_to_send(text)
+    assert "BEGIN:VTIMEZONE" in sending[0].body
+    assert not report["undefined_timezones"]
+
+
+def test_what_a_file_was_exported_for_is_not_stored() -> None:
+    """METHOD says a calendar was published or invited with; RFC 4791 bars it here."""
+    text = calendar_of(event("a"), header="VERSION:2.0\r\nPRODID:-//Test//EN\r\nMETHOD:PUBLISH\r\n")
+    sending, report = entries_to_send(text)
+    assert report["dropped_method"]
+    assert "METHOD" not in sending[0].body
+
+
+def test_the_program_that_wrote_the_calendar_is_kept() -> None:
+    """Which program wrote a calendar is part of what a reproduction reproduces."""
+    sending, _ = entries_to_send(read(FIXTURES / "ics-identities.expected.ics"))
+    assert "PRODID:-//Example Corp//Calendar 1.0//EN" in sending[0].body
+
+
+def test_a_calendar_missing_its_own_header_still_produces_a_storable_entry() -> None:
+    text = "BEGIN:VCALENDAR\r\n" + event("a") + "END:VCALENDAR\r\n"
+    sending, _ = entries_to_send(text)
+    assert "VERSION:2.0" in sending[0].body
+    assert "PRODID:" in sending[0].body
+
+
+def test_an_entry_with_no_identifier_is_left_out_and_said_so() -> None:
+    """Inventing one would import something the file does not say."""
+    text = calendar_of(event("a"), "BEGIN:VEVENT\r\nDTSTART:20260601T090000Z\r\nEND:VEVENT\r\n")
+    sending, report = entries_to_send(text)
+    assert [entry.uid for entry in sending] == ["a"]
+    assert report["nameless"] == 1
+
+
+def test_a_component_that_is_not_an_entry_is_not_sent() -> None:
+    text = calendar_of(event("a"), "BEGIN:VFREEBUSY\r\nUID:f\r\nEND:VFREEBUSY\r\n")
+    sending, report = entries_to_send(text)
+    assert [entry.uid for entry in sending] == ["a"]
+    assert report["not_entries"] == {"VFREEBUSY": 1}
+
+
+def test_two_kinds_of_entry_under_one_identifier_are_reported() -> None:
+    """Not something a calendar may hold, and a server refusing it says little."""
+    text = calendar_of(event("a"), "BEGIN:VTODO\r\nUID:a\r\nEND:VTODO\r\n")
+    _, report = entries_to_send(text)
+    assert report["mixed"] == ["a"]
+
+
+def test_a_folded_value_arrives_whole() -> None:
+    """The trap the scrubber hit: a long value is one value, not the first line of one."""
+    summary = "Réunion " + "budgétaire " * 12
+    text = calendar_of(event("a", f"SUMMARY:{summary}"))
+    sending, _ = entries_to_send(text)
+    unfolded = import_tool._unfold(sending[0].body)
+    assert f"SUMMARY:{summary}" in unfolded
+    assert all(len(line.encode("utf-8")) <= 75 for line in sending[0].body.split("\r\n"))
+
+
+def test_the_addresses_are_the_same_every_run() -> None:
+    """So a second run of one file finds what the first one stored, and adds nothing."""
+    text = read(FIXTURES / "ics-identities.expected.ics")
+    first = [entry.segment for entry in entries_to_send(text)[0]]
+    again = [entry.segment for entry in entries_to_send(text)[0]]
+    assert first == again
+
+
+def test_an_identifier_no_address_could_hold_becomes_a_digest() -> None:
+    """Identifiers are arbitrary strings, and one of them will be a path or a novel."""
+    assert address_for_entry("simple@example.org") == "simple%40example.org.ics"
+    assert address_for_entry("../../etc/passwd") == "..%2F..%2Fetc%2Fpasswd.ics"
+    assert address_for_entry("a b?c#d") == "a%20b%3Fc%23d.ics"
+    long_one = address_for_entry("x" * 400)
+    assert len(long_one) == 36 and long_one.endswith(".ics")
+    assert long_one == address_for_entry("x" * 400)
+    assert address_for_entry("x" * 400) != address_for_entry("y" * 400)
+
+
+def test_the_calendar_header_is_not_mistaken_for_a_component() -> None:
+    header, components = components_in(calendar_of(TIMEZONE, event("a")))
+    assert header == ["VERSION:2.0", "PRODID:-//Test//EN"]
+    assert [kind for kind, _ in components] == ["VTIMEZONE", "VEVENT"]
+
+
+@pytest.mark.parametrize("path", CALENDARS, ids=lambda p: p.stem)
+def test_every_scrubbed_fixture_can_be_sent(path: Path) -> None:
+    """One request per identifier, and every identifier accounted for.
+
+    Parametrised over the fixtures rather than a convenient one, because these
+    are the shapes the scrubber is known to produce.
+    """
+    text = read(FIXTURES / f"{path.stem}.expected.ics")
+    sending, _ = entries_to_send(text)
+    assert {entry.uid for entry in sending} == ids_in(text)
+    for entry in sending:
+        assert ids_in(entry.body) == {entry.uid}
+        assert entry.body.endswith("END:VCALENDAR\r\n")
+
+
+def test_nothing_is_sent_without_being_asked(monkeypatch, capsys) -> None:
+    calendar = Importer("https://host/c/", "u", "p")
+    stored = putting(calendar)[1]
+    code = run_import(["https://host/c/", scrubbed("ics-identities"), "-u", "u"],
+                      monkeypatch, calendar)
+    assert code == 0
+    assert not stored, "a dry run must send nothing"
+    assert "dry run" in capsys.readouterr().out
+
+
+def test_one_of_something_is_reported_as_one(monkeypatch, capsys) -> None:
+    """Support staff read this output, and half of them will be sending one entry."""
+    calendar = Importer("https://host/c/", "u", "p")
+    putting(calendar)
+    run_import(["https://host/c/", scrubbed("ics-recurrence-override"), "-u", "u"],
+               monkeypatch, calendar)
+    printed = capsys.readouterr().out
+    assert "Would send 1 entry to" in printed
+    assert "1 entry, one request" in printed
+    assert "1 changed occurrence, sent with its own series" in printed
+
+
+def test_the_address_is_reported_the_way_it_will_be_reached(monkeypatch, capsys) -> None:
+    """A local server on some port is exactly where an unscrubbed calendar may go."""
+    calendar = Importer("http://127.0.0.1:8731/c", "u", "p")
+    putting(calendar)
+    run_import(["http://127.0.0.1:8731/c", scrubbed("ics-identities"), "-u", "u"],
+               monkeypatch, calendar)
+    assert "http://127.0.0.1:8731/c/" in capsys.readouterr().out
+
+
+def test_the_entries_are_stored_one_request_each(monkeypatch, capsys) -> None:
+    calendar = Importer("https://host/c/", "u", "p")
+    made, stored = putting(calendar)
+    code = run_import(["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload"],
+                      monkeypatch, calendar)
+    assert code == 0
+    assert len(stored) == 3
+    assert all(path.startswith("/c/") for path in stored)
+    assert "Sent 3 entries" in capsys.readouterr().out
+    assert [headers["Content-Type"] for method, _, headers, _ in made if method == "PUT"] == (
+        ["text/calendar; charset=utf-8"] * 3
+    )
+
+
+def test_nothing_already_there_is_overwritten(monkeypatch, capsys) -> None:
+    """The one thing that could lose somebody's entry, so it is the default.
+
+    An entry already in the calendar is reported as left alone rather than as a
+    failure: that is the expected outcome of running the same file twice, which
+    is also how an interrupted run is finished.
+    """
+    calendar = Importer("https://host/c/", "u", "p")
+    made, stored = putting(calendar)
+    argv = ["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload"]
+    assert run_import(argv, monkeypatch, calendar) == 0
+    was = dict(stored)
+    capsys.readouterr()
+
+    calendar = Importer("https://host/c/", "u", "p")
+    made, stored = putting(calendar, stored)
+    assert run_import(argv, monkeypatch, calendar) == 0
+    assert stored == was, "a second run must not rewrite what is already there"
+    printed = capsys.readouterr().out
+    assert "Sent 0 entries" in printed
+    assert "3 entries already in the calendar, left alone" in printed
+    assert all(headers.get("If-None-Match") == "*" for method, _, headers, _ in made
+               if method == "PUT")
+
+
+def test_only_what_is_missing_is_sent_when_it_is_run_again(monkeypatch, capsys) -> None:
+    """Which is what makes a run that a rate limit interrupted safe to repeat."""
+    calendar = Importer("https://host/c/", "u", "p")
+    sending, _ = entries_to_send(read(FIXTURES / "ics-identities.expected.ics"))
+    held = {"/c/" + sending[0].segment: sending[0].body}
+    stored = putting(calendar, held)[1]
+    code = run_import(["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload"],
+                      monkeypatch, calendar)
+    assert code == 0
+    assert len(stored) == 3
+    printed = capsys.readouterr().out
+    assert "Sent 2 entries" in printed
+    assert "1 entry already in the calendar, left alone" in printed
+
+
+def test_replacing_asks_for_the_count_first(monkeypatch, capsys) -> None:
+    calendar = Importer("https://host/c/", "u", "p")
+    stored = putting(calendar)[1]
+    code = run_import(
+        ["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload", "--replace"],
+        monkeypatch, calendar, answer="2",
+    )
+    assert code == 1
+    assert not stored
+    assert "Nothing sent" in capsys.readouterr().out
+
+
+def test_replacing_overwrites_once_the_count_is_typed(monkeypatch) -> None:
+    calendar = Importer("https://host/c/", "u", "p")
+    sending, _ = entries_to_send(read(FIXTURES / "ics-identities.expected.ics"))
+    held = {"/c/" + sending[0].segment: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"}
+    made, stored = putting(calendar, held)
+    code = run_import(
+        ["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload", "--replace"],
+        monkeypatch, calendar, answer="3",
+    )
+    assert code == 0
+    assert stored["/c/" + sending[0].segment] == sending[0].body
+    assert not any("If-None-Match" in headers for method, _, headers, _ in made if method == "PUT")
+
+
+def test_an_entry_can_be_looked_at_before_it_is_sent(monkeypatch, capsys) -> None:
+    """The same three-way answer the cleanup tools take, worded for sending."""
+    calendar = Importer("https://host/c/", "u", "p")
+    stored = putting(calendar)[1]
+    code = run_import(
+        ["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload", "--confirm"],
+        monkeypatch, calendar, answer=["y", "n", "q"],
+    )
+    assert code == 0
+    assert len(stored) == 1
+    assert "Stopped where you asked" in capsys.readouterr().out
+
+
+def test_a_server_that_does_not_call_it_a_calendar_asks_first(monkeypatch, capsys) -> None:
+    """Sending to the calendar home is the mistake, and it answers 207 as well."""
+    calendar = Importer("https://host/dav/cal/you/", "u", "p")
+    home = multistatus(collection("/dav/cal/you/", "you"))
+
+    def request(method, path, body=None, headers=None):
+        assert method != "PUT", "nothing may be sent before that is answered"
+        return (207, home)
+
+    calendar.request = request
+    code = run_import(
+        ["https://host/dav/cal/you/", scrubbed("ics-identities"), "-u", "u", "--upload"],
+        monkeypatch, calendar, answer="n",
+    )
+    assert code == 1
+    assert "does not call it a calendar" in capsys.readouterr().out
+
+
+def test_a_calendar_that_still_identifies_people_is_refused(monkeypatch, capsys) -> None:
+    """The check is anonymize_ics.py's, so there is one definition of clean.
+
+    And it happens before the password, as --confirm does: being told the file is
+    not going anywhere is better news before you have typed one.
+    """
+    calendar = Importer("https://host/c/", "u", "p")
+    made = putting(calendar)[0]
+    code = run_import(
+        ["https://host/c/", str(FIXTURES / "ics-identities.ics"), "-u", "u", "--upload"],
+        monkeypatch, calendar,
+    )
+    assert code == 1
+    assert not made, "nothing may be sent, and nothing may even be asked"
+    reported = capsys.readouterr().err
+    assert "still identifies people" in reported
+    assert "anonymize_ics.py" in reported
+    assert "more findings" in reported, "a calendar can hold a finding per event"
+
+
+def test_unscrubbed_does_not_apply_to_a_server_out_there(monkeypatch, capsys) -> None:
+    """A DELETE afterwards does not reach the backups, the logs or the other clients."""
+    calendar = Importer("https://mail.thundermail.com/c/", "u", "p")
+    made = putting(calendar)[0]
+    code = run_import(
+        ["https://mail.thundermail.com/c/", str(FIXTURES / "ics-identities.ics"),
+         "-u", "u", "--upload", "--unscrubbed"],
+        monkeypatch, calendar,
+    )
+    assert code == 1
+    assert not made
+    assert "mail.thundermail.com" in capsys.readouterr().err
+
+
+def test_unscrubbed_applies_to_a_server_on_this_machine(monkeypatch) -> None:
+    """Stalwart in Docker answers the same requests, and can be wiped completely."""
+    calendar = Importer("https://localhost:8080/c/", "u", "p")
+    stored = putting(calendar)[1]
+    code = run_import(
+        ["https://localhost:8080/c/", str(FIXTURES / "ics-identities.ics"),
+         "-u", "u", "--upload", "--unscrubbed"],
+        monkeypatch, calendar,
+    )
+    assert code == 0
+    assert len(stored) == 3
+
+
+def test_which_servers_count_as_being_here() -> None:
+    for here in ("localhost", "127.0.0.1", "::1", "192.168.1.10", "10.0.0.5", "stalwart.local"):
+        assert on_this_machine(here), here
+    for out_there in ("mail.thundermail.com", "8.8.8.8", "example.com", ""):
+        assert not on_this_machine(out_there), out_there
+
+
+def test_a_file_that_is_not_there_says_so(monkeypatch, capsys) -> None:
+    calendar = Importer("https://host/c/", "u", "p")
+    made = putting(calendar)[0]
+    code = run_import(["https://host/c/", str(FIXTURES / "nothing-here.ics"), "-u", "u"],
+                      monkeypatch, calendar)
+    assert code == 1
+    assert not made
+    assert "Could not read" in capsys.readouterr().err
+
+
+def test_a_server_refusing_an_entry_is_reported_rather_than_counted(monkeypatch, capsys) -> None:
+    calendar = Importer("https://host/c/", "u", "p")
+
+    def request(method, path, body=None, headers=None):
+        if method != "PUT":
+            return (207, CALENDAR_HERE)
+        return (415, b"")
+
+    calendar.request = request
+    code = run_import(["https://host/c/", scrubbed("ics-identities"), "-u", "u", "--upload"],
+                      monkeypatch, calendar)
+    assert code == 1
+    printed = capsys.readouterr().out
+    assert "Sent 0 entries" in printed
+    assert "would not take it as a calendar entry" in printed
+    assert "Running this again" in printed
+
+
+# --------------------------------------------------------------------------
 # Signing in
 
 # The environment and a question do the same job here, and both matter. Reading
@@ -673,11 +1145,17 @@ def test_a_bad_password_says_to_use_an_app_password(monkeypatch, capsys) -> None
         (events_tool, ["https://host/c/"]),
         (calendars_tool, ["https://host/dav/cal/you/"]),
         (make_tool, ["https://host/dav/cal/you/", "scratch"]),
+        (import_tool, ["https://host/c/", str(FIXTURES / "ics-identities.expected.ics")]),
     ],
-    ids=["events", "calendars", "make"],
+    ids=["events", "calendars", "make", "import"],
 )
-def test_all_three_take_the_credentials_from_the_environment(tool, argv, monkeypatch) -> None:
-    kind = {events_tool: Calendar, calendars_tool: Account, make_tool: Maker}[tool]
+def test_every_tool_takes_the_credentials_from_the_environment(tool, argv, monkeypatch) -> None:
+    kind = {
+        events_tool: Calendar,
+        calendars_tool: Account,
+        make_tool: Maker,
+        import_tool: Importer,
+    }[tool]
     calendar = kind(argv[0], "ignored", "ignored")
     talking(calendar, lambda *_: (207, multistatus()))
     monkeypatch.setenv("CALDAV_USER", "you@example.com")

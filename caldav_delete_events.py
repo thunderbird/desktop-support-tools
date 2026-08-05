@@ -319,6 +319,18 @@ class Calendar:
         self.authorization = "Basic " + base64.b64encode(credentials).decode("ascii")
         self.connection: http.client.HTTPConnection | None = None
 
+    def address(self) -> str:
+        """The calendar's address as the tool understands it, to print back at you.
+
+        Assembled from the parts rather than echoed, because what a request goes
+        to is the path with its trailing slash rather than whatever was typed.
+        Which means the scheme and the port are assembled too, and neither is a
+        detail to lose: a local server on some port is exactly where a
+        reproduction that must not touch production goes.
+        """
+        port = f":{self.port}" if self.port else ""
+        return f"{'https' if self.secure else 'http'}://{self.host}{port}{self.path}"
+
     def _connect(self) -> http.client.HTTPConnection:
         if self.connection is None:
             opener = http.client.HTTPSConnection if self.secure else http.client.HTTPConnection
