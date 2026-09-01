@@ -412,6 +412,21 @@ So: when either half changes, change the other, and add the fixture that would
 have caught the difference. A twin that has drifted is worse than no twin,
 because the tests keep passing.
 
+**The privacy claim is written down where it can be checked.**
+`firefox-addon/privacy.html`, and the PDF printed from it, cite a line of code
+for every claim and name the commit those line numbers belong to, because a
+claim about what code does not do goes stale silently. Two things make it hold
+up rather than reassure: the storage argument rests on the manifest having no
+`permissions` key at all, so the storage APIs are *unavailable* rather than
+merely unused, and the evidence for the absences is a `grep` anybody can re-run,
+which does not depend on line numbers. It ends with what it does not claim —
+the browser's own password manager, the password going to your mail server,
+the persisted permission grant, a visible screen. Update it, and the commit it
+names, whenever the add-on's handling of either value changes.
+
+To reprint it: open the HTML in a browser and print to PDF. There is no script,
+because rendering needs a browser and this repo has no dependencies.
+
 **`caldav_account.js` reads the XML itself rather than using `DOMParser`.** Two
 reasons, and the first is the one that matters: the same code then runs under
 `node --test` and in the add-on, so the tests exercise what ships. The second is
@@ -645,6 +660,8 @@ caldav_delete_calendars.py  CLI: delete the test calendars, keeping the default
 caldav_account.js           the account listing again, for the add-on
 package_addon.py            assemble firefox-addon/ + the shared module into build/
 firefox-addon/              the add-on: manifest, popup, and nothing else
+firefox-addon/privacy.{html,pdf}  what happens to your address and app password,
+                            line by line; the PDF is printed from the HTML
 troubleshooting_info.js     the parser again, for the browser
 verdicts.js                 the engine again, for the browser
 index.html, app.js, style.css   the webapp; app.js only reads the textarea

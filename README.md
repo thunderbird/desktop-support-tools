@@ -481,6 +481,13 @@ the address is whatever you typed. It is never given the run of the web.
 Confirmed working in Firefox on 2026-09-01: the prompt appears on the first
 click, and the answer is remembered until you revoke it in Add-ons Manager.
 
+**A written account of that, with line numbers:**
+[`firefox-addon/privacy.pdf`](firefox-addon/privacy.pdf), which walks through
+where your email address and app password go, cites the line of code behind
+each claim, and ends with the things it does *not* claim. It is pinned to the
+commit its line numbers came from. `firefox-addon/privacy.html` is the source it
+was printed from.
+
 **What it stores: nothing.** What you type lives in the popup and goes when the
 popup closes — no extension storage, no sync, no cookies on the request, nothing
 in a URL. Requests go from your browser straight to your own mail server. Your

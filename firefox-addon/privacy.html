@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Thundermail calendars add-on — how your address and app password are handled</title>
+    <style>
+      @page {
+        size: letter;
+        margin: 18mm 16mm 16mm;
+      }
+
+      :root {
+        --ink: #16161a;
+        --quiet: #5c5c66;
+        --rule: #d8d8de;
+        --code: #f4f4f6;
+        --good: #0a6b3d;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 10.2pt;
+        line-height: 1.5;
+      }
+
+      h1 {
+        margin: 0 0 0.15rem;
+        font-size: 19pt;
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+      }
+
+      .sub {
+        margin: 0 0 0.2rem;
+        color: var(--quiet);
+        font-size: 11pt;
+      }
+
+      .pin {
+        margin: 0 0 1.4rem;
+        padding-bottom: 0.9rem;
+        border-bottom: 2px solid var(--ink);
+        color: var(--quiet);
+        font-size: 8.6pt;
+      }
+
+      .pin code { background: none; padding: 0; }
+
+      h2 {
+        margin: 1.5rem 0 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--rule);
+        font-size: 12pt;
+        break-after: avoid;
+      }
+
+      h2 .n {
+        display: inline-block;
+        width: 1.4rem;
+        color: var(--quiet);
+        font-weight: 400;
+      }
+
+      p { margin: 0 0 0.6rem; }
+
+      code, .ref {
+        font-family: "SF Mono", "Menlo", ui-monospace, monospace;
+        font-size: 8.8pt;
+      }
+
+      code {
+        background: var(--code);
+        padding: 0.05rem 0.25rem;
+        border-radius: 2px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 0.7rem;
+        break-inside: avoid;
+      }
+
+      th, td {
+        padding: 0.34rem 0.5rem 0.34rem 0;
+        border-bottom: 1px solid var(--rule);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        border-bottom: 1px solid var(--ink);
+        font-size: 8.4pt;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--quiet);
+      }
+
+      td.where { width: 34%; }
+      td.where .ref { color: var(--quiet); display: block; }
+
+      pre {
+        margin: 0 0 0.7rem;
+        padding: 0.6rem 0.75rem;
+        background: var(--code);
+        border-left: 3px solid var(--rule);
+        font-family: "SF Mono", "Menlo", ui-monospace, monospace;
+        font-size: 8.4pt;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        break-inside: avoid;
+      }
+
+      pre b { color: var(--good); }
+
+      ul { margin: 0 0 0.6rem; padding-left: 1.1rem; }
+      li { margin-bottom: 0.25rem; }
+
+      .lede {
+        padding: 0.7rem 0.9rem;
+        background: var(--code);
+        border-radius: 3px;
+        margin-bottom: 1rem;
+      }
+
+      .lede p:last-child { margin-bottom: 0; }
+
+      .caveat h2 { border-top-color: var(--ink); }
+
+      footer {
+        margin-top: 1.6rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--rule);
+        color: var(--quiet);
+        font-size: 8.4pt;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Your address and your app password</h1>
+    <p class="sub">What the Thundermail calendars add-on does with the two things you type into it.</p>
+    <p class="pin">
+      Every line reference below is to commit <code>4e418b8</code> of
+      <code>thunderbird/desktop-support-tools</code>, so they can be checked and cannot drift
+      silently. Files are <code>firefox-addon/manifest.json</code>,
+      <code>firefox-addon/popup.html</code>, <code>firefox-addon/popup.js</code>, and the shared
+      <code>caldav_account.js</code>. Written 1 September 2026.
+    </p>
+
+    <div class="lede">
+      <p>
+        <b>Neither value is stored anywhere.</b> Your email address and your app password are read
+        out of the form at the moment a request is made, held in local variables for the length of
+        that request, and dropped. They are not written to extension storage, not synced, not put in
+        a cookie, not put in a URL, and not logged. When the popup or sidebar closes, the page and
+        everything in it is gone.
+      </p>
+      <p>
+        The requests carrying them go from your browser directly to the mail server you named. There
+        is no backend belonging to this project for anything to be sent to.
+      </p>
+    </div>
+
+    <h2><span class="n">1</span> Where the two values live, and for how long</h2>
+    <table>
+      <tr>
+        <th>Step</th>
+        <th>Where</th>
+      </tr>
+      <tr>
+        <td>Both are read from the form only when you click a button — not on a timer, not on
+          keystroke, not at load.</td>
+        <td class="where">
+          <span class="ref">popup.js:226–228</span>
+          <code>credentials()</code>
+        </td>
+      </tr>
+      <tr>
+        <td>They exist as three <code>const</code> locals inside that function, returned to the
+          caller and passed straight into the request.</td>
+        <td class="where"><span class="ref">popup.js:225–236, 245</span></td>
+      </tr>
+      <tr>
+        <td>The password is turned into an <code>Authorization: Basic</code> header value per
+          request. Nothing keeps the result.</td>
+        <td class="where">
+          <span class="ref">popup.js:266</span>
+          <span class="ref">caldav_account.js:231–235</span>
+        </td>
+      </tr>
+      <tr>
+        <td>The only state that outlives a click is the calendar listing — the home address, the
+          calendars found, and which is default. <b>No credentials are in it.</b></td>
+        <td class="where">
+          <span class="ref">popup.js:63</span>
+          <code>known = { home, calendars, default }</code>
+        </td>
+      </tr>
+      <tr>
+        <td>The values in the form fields themselves live as long as the page does: until the popup
+          loses focus, or until you close the sidebar.</td>
+        <td class="where"><span class="ref">popup.html:22–60</span></td>
+      </tr>
+    </table>
+    <p>
+      There is no background script in this add-on at all, so there is no part of it that keeps
+      running once the page is closed, and nothing that could hold a value after you have finished.
+    </p>
+
+    <h2><span class="n">2</span> What is not in the code — and how to confirm it yourself</h2>
+    <p>
+      The claim is an absence, so the evidence is a search rather than a line. Run this at the top of
+      the repository:
+    </p>
+    <pre>$ grep -rniE "localstorage|sessionstorage|indexeddb|storage\.(local|sync|session|managed)|\
+document\.cookie|console\.(log|debug|info|warn|error)|navigator\.clipboard|\
+history\.(push|replace)state" firefox-addon/ caldav_account.js
+
+firefox-addon/popup.js:276:      // No cookies, ever: this signs in with the app password you typed and</pre>
+    <p>
+      One hit, and it is a comment. No extension storage, no web storage, no IndexedDB, no cookie
+      access, <b>no logging of any kind</b>, no clipboard use, and nothing written into browser
+      history.
+    </p>
+
+    <h2><span class="n">3</span> The manifest makes storage unavailable, not merely unused</h2>
+    <p>
+      A WebExtension can only call <code>storage.local</code> or <code>storage.sync</code> if it
+      declares the <code>storage</code> permission. This add-on has no <code>permissions</code> key
+      at all — the only permissions it names are optional host permissions, which are about which
+      servers it may contact:
+    </p>
+    <pre>manifest.json:26–30
+
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ]</pre>
+    <p>
+      So the storage APIs are not simply avoided by convention: they are not available to this
+      add-on, and adding them would require a manifest change that is visible in review and in the
+      permissions Firefox shows you. <code>storage.sync</code> matters most here — it would have put
+      an app password on Mozilla's sync servers, which is the opposite of what an app password is
+      for.
+    </p>
+
+    <h2><span class="n">4</span> The requests themselves</h2>
+    <table>
+      <tr>
+        <th>Property</th>
+        <th>Where</th>
+      </tr>
+      <tr>
+        <td><code>credentials: "omit"</code> — no cookies are attached, so nothing the browser
+          already holds for that site is sent along, and nothing is set.</td>
+        <td class="where"><span class="ref">popup.js:278</span></td>
+      </tr>
+      <tr>
+        <td><code>cache: "no-store"</code> — neither the request nor the reply enters the HTTP
+          cache.</td>
+        <td class="where"><span class="ref">popup.js:279</span></td>
+      </tr>
+      <tr>
+        <td>Credentials travel in a header, never in the address, so they cannot end up in history,
+          in a referrer, or in a server's access log.</td>
+        <td class="where"><span class="ref">popup.js:266, 272–280</span></td>
+      </tr>
+      <tr>
+        <td>A request is refused outright if its address is not the origin you granted permission
+          for — so a reply from the server cannot redirect your password elsewhere.</td>
+        <td class="where"><span class="ref">popup.js:254–259</span></td>
+      </tr>
+      <tr>
+        <td>Plain <code>http://</code> is refused unless the server is on your own machine or
+          network, so the password is not put on the wire unencrypted.</td>
+        <td class="where"><span class="ref">caldav_account.js:214–228</span></td>
+      </tr>
+    </table>
+
+    <h2><span class="n">5</span> Nothing is carried in the address of the page</h2>
+    <p>
+      The add-on's own pages take exactly one query parameter, <code>?in=sidebar</code>, set in the
+      manifest and used only to decide whether to offer the sidebar button
+      (<span class="ref">manifest.json:33</span>, <span class="ref">popup.js:49–58</span>). No value
+      you type is ever put into a URL.
+    </p>
+
+    <h2><span class="n">6</span> The one piece of personal data on screen</h2>
+    <p>
+      On Thundermail, the default calendar's name is generated from the account, so it
+      <b>contains your email address</b> — for example
+      <code>Your Thundermail Calendar (you@example.com)</code>. That name comes from the server, is
+      shown to you, and goes no further: it is written with <code>textContent</code>
+      (<span class="ref">popup.js:312–316</span>), never as markup, and never sent anywhere. The
+      add-on points it out when it sees an address in a name
+      (<span class="ref">popup.js:347–357</span>), because the risk is a screenshot or a paste into a
+      public bug report rather than anything the add-on does with it.
+    </p>
+
+    <div class="caveat">
+      <h2><span class="n">7</span> What this does <i>not</i> claim</h2>
+      <ul>
+        <li>
+          <b>Your browser may still offer to save the password.</b> <code>autocomplete="off"</code>
+          is set on the form and on every field (<span class="ref">popup.html:22, 29, 40, 55</span>),
+          but that is a request browsers are free to ignore. If you accept the offer, your browser
+          stores it — the add-on has no part in that, and says so on screen
+          (<span class="ref">popup.html:93–97</span>).
+        </li>
+        <li>
+          <b>The password is sent to your mail server.</b> That is the whole point: it is how the
+          add-on signs in. "Not stored" means not kept by the add-on, not that it stays on your
+          machine.
+        </li>
+        <li>
+          <b>The permission you grant is remembered by Firefox</b> until you revoke it in the
+          Add-ons Manager. That records which server the add-on may contact — not who you are, and
+          not your password.
+        </li>
+        <li>
+          <b>Your own screen is not covered.</b> An open sidebar keeps the form visible while you
+          work, which is convenient and is also visible to anyone looking at your screen or sharing
+          it.
+        </li>
+        <li>
+          <b>This describes one commit.</b> Line numbers move. Check them against
+          <code>4e418b8</code>, or re-run the search in section 2, which does not depend on line
+          numbers at all.
+        </li>
+      </ul>
+    </div>
+
+    <footer>
+      thunderbird/desktop-support-tools · firefox-addon · MPL-2.0 · commit 4e418b8 · 1 September 2026
+    </footer>
+  </body>
+</html>
