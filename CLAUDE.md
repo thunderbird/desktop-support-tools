@@ -357,6 +357,40 @@ logs, nor the other clients on that account. This is the one rule in the tool th
 is a policy decision rather than a protocol one, so it is enforced in code rather
 than written in the docs.
 
+## Asking which calendar is the default: `caldav_list_calendars.py`
+
+**The default calendar is the one thing you have to know before testing and the
+one thing the server will not tell you.** RFC 4791 has
+`schedule-default-calendar-URL` for exactly this, and Thundermail's Stalwart
+answers it nowhere — not on the calendar home, not on the principal. Confirmed
+2026-08-01 and again 2026-09-01, so treat it as how that server is, not as a
+transient.
+
+What is left is the `/default` path segment, which is a guess, and the server
+refusing to `DELETE` it, which is certain and destructive. So the rule is:
+**a tool that only lists sends `PROPFIND` and nothing else**, and says which of
+the two answers you are getting. `default_among()` in `caldav_account.py` is the
+single place that decides, and it returns *whether the server said so* alongside
+the answer — a caller that cannot tell a fact from an inference will eventually
+print one as the other.
+
+The name is never a signal. A calendar can be called anything, "Default"
+included, and the display name is the last thing that tells you which calendar
+the account schedules into.
+
+**Its output is the one place these tools emit a real address.** Thundermail
+generates the default calendar's name from the account, so on
+`nemo@thundermail.com` it is `Nemo Thundermail Calendar (nemo@thundermail.com)`.
+The no-PII rule is free everywhere else because no verdict needs an address;
+here the answer *is* one. Issue #18 is where what to do about that is being
+decided — until then, do not treat that output as safe to paste.
+
+`caldav_account.py` exists because of this tool. The connection and the listing
+used to live in `caldav_delete_calendars.py`, which was fine while every tool
+changed something; a read-only tool would have had to import `DELETE` to ask a
+question. `Connection` is the transport, `Account` is the calendars on it, and
+the verbs are subclasses: `Deleter`, `Maker`, `Importer`.
+
 ## Thundermail expected settings
 
 From `pulumi/config.prod.yaml` in

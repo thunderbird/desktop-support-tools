@@ -236,11 +236,46 @@ answer differently without it.
 
 ### See what is there
 
+`caldav_list_calendars.py` answers two questions, and which one it answers is
+the only thing `--all` changes. Neither sends anything but `PROPFIND`.
+
+**What is my default calendar called?** — the one you must never test against:
+
 ```sh
-uv run caldav_list_calendars.py "$CAL_HOME" --all
+$ uv run caldav_list_calendars.py "$CAL_HOME"
+App password for nemo@thundermail.com:
+The server did not say which calendar is its default, so that was worked out from
+the addresses: this is the one whose address ends in /default.
+Nemo Thundermail Calendar (nemo@thundermail.com)
 ```
 
-or the request it makes, with nothing in the way:
+The name goes to standard output on a line of its own and everything else goes
+to standard error, so the name is all a variable catches:
+
+```sh
+DEFAULT=$(uv run caldav_list_calendars.py "$CAL_HOME")
+```
+
+If it cannot tell which calendar is the default it says so and exits non-zero,
+rather than handing back an empty line for a shell to carry on with.
+
+**What else is on the account?** — the leftovers of every reproduction you have
+run, which is what you want before making another calendar or cleaning up:
+
+```sh
+$ uv run caldav_list_calendars.py "$CAL_HOME" --all
+2 calendars under /dav/cal/nemo%40thundermail.com/:
+
+  ticket 7067                                       .../ticket-7067/
+  Nemo Thundermail Calendar (nemo@thundermail.com)  .../default/  <- default
+```
+
+Note what that default calendar is called: on Thundermail the name is generated
+from the account, **so it contains your email address**. It is your own address
+on your own screen, but it is also the one output of these tools that is a
+person — worth a second look before it goes into a bug or a support thread.
+
+Both come from one request, which is also worth sending with nothing in the way:
 
 ```sh
 curl -s -u "$CALDAV_USER" -X PROPFIND -H 'Depth: 1' \
@@ -263,7 +298,7 @@ deleting them breaks the account.
 
 `<schedule-default-calendar-URL>` is asked for because it is meant to name the
 default calendar, the one never to test against. **Thundermail does not answer
-it** (checked 2026-08-01), so there the default is identifiable only by its
+it** (checked 2026-08-01, and again on 2026-09-01), so there the default is identifiable only by its
 `/default/` path segment, and by its refusing to be deleted. Other servers do
 answer it, which is why it stays in the request.
 
