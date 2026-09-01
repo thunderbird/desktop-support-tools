@@ -443,8 +443,9 @@ uv run package_addon.py          # assembles build/firefox-addon/
 uv run package_addon.py --zip    # ... and the archive you upload for signing
 ```
 
-Then in Firefox: **about:debugging** → **This Firefox** → **Load Temporary
-Add-on**, and pick `build/firefox-addon/manifest.json`. It is there until
+Then in Firefox — **ESR 140.15 or newer** — **about:debugging** → **This
+Firefox** → **Load Temporary Add-on**, and pick
+`build/firefox-addon/manifest.json`. It is there until
 Firefox restarts. Anything more permanent has to be signed, because release
 Firefox will not install an unsigned extension.
 
@@ -458,6 +459,13 @@ after editing the shared file.
 headers, so a page — even one served from your own machine — never gets to make
 the request. An extension with a host permission is not subject to that. The ask
 to Thundermail is tracked separately; the add-on does not wait on it.
+
+**You only have to type your address.** Give it `you@thundermail.com` and the
+address of your calendars fills itself in, because Thundermail puts them
+somewhere worked out from the account. It is filled in rather than assumed: edit
+it and it stays edited, and for any provider other than Thundermail the field is
+left alone, since a guessed path that 404s looks exactly like an account with no
+calendars in it.
 
 **Keeping it open.** A popup is closed by the browser the moment it loses
 focus, switching tabs included, and no setting changes that. So the popup offers

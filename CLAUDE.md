@@ -416,11 +416,22 @@ right shape in Firefox MV3, and asking outright rather than checking
 `permissions.contains()` first — which would spend the user gesture — is what
 makes the prompt appear at all.
 
-What that run does *not* settle is `strict_min_version: "128.0"`. It proves the
-Firefox it ran on is at least 128, not that 128 is the floor; that number is
-still from documentation, and the only thing that would pin it is running it on
-older builds. Harmless either way — too high a floor turns people away, it does
-not break anything.
+**`strict_min_version` is `140.15.0`**, the newest ESR 140 as of 2026-09-01
+(`product-details.mozilla.org/1.0/firefox_versions.json`, `FIREFOX_ESR`). ESR is
+what support-facing tooling should be pinned to, and the newest point release
+rather than `140.0` is a deliberate choice with a cost: somebody sitting on
+140.3 is told the add-on is incompatible rather than being allowed to try it.
+Acceptable because ESR takes its point releases automatically; loosen it to
+`140.0` the day that turns out to be wrong.
+
+**The calendar home fills itself in from the address you type**, via `homeFor()`
+in `caldav_account.js`. That is one observation — `nemo@thundermail.com`'s
+calendars are at `https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/`,
+read on 2026-09-01 — and not a documented rule, so it fills a field you can then
+change and it never guesses for any other provider. A wrong path 404s, and a 404
+from the wrong address looks exactly like an account with no calendars in it,
+which is a worse place to leave somebody than an empty field. Typing in the
+field yourself stops the guessing for good.
 
 ## Asking which calendar is the default: `caldav_list_calendars.py`
 

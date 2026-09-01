@@ -151,6 +151,31 @@ export function addressFor(name) {
   return slug || "calendar";
 }
 
+// Where Thundermail keeps an account's calendars. Read off a real account on
+// 2026-09-01 -- nemo@thundermail.com's calendars are at
+// https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/ -- so it is one
+// observation rather than a documented rule, which is why it only ever fills a
+// field in that you can then change.
+const THUNDERMAIL = { domain: "thundermail.com", host: "mail.thundermail.com", dav: "/dav/cal/" };
+
+/**
+ * The address of that account's calendars, where it can be worked out.
+ *
+ * Only Thundermail, and only because it has been looked at. Every other
+ * provider puts its calendars somewhere of its own choosing, and guessing at a
+ * path that turns out to be wrong wastes more of your time than an empty field
+ * does: a 404 from the wrong address looks exactly like an account with no
+ * calendars in it.
+ */
+export function homeFor(user) {
+  const address = (user || "").trim();
+  const at = address.lastIndexOf("@");
+  if (at < 1) return null;
+  if (address.slice(at + 1).toLowerCase() !== THUNDERMAIL.domain) return null;
+  // The address is a path segment here, so its @ has to be written %40.
+  return `https://${THUNDERMAIL.host}${THUNDERMAIL.dav}${encodeURIComponent(address)}/`;
+}
+
 /** Whether that host is a server here rather than one out on the internet. */
 export function onThisMachine(host) {
   const name = (host || "").replace(/^\[|\]$/g, "").toLowerCase().replace(/\.$/, "");

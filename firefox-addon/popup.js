@@ -20,6 +20,7 @@ import {
   calendarsIn,
   defaultAmong,
   defaultIn,
+  homeFor,
   makeBody,
   pathOf,
   targetProblem,
@@ -99,6 +100,32 @@ function askedFor() {
 document.querySelector("#name").addEventListener("input", (event) => {
   const name = event.target.value.trim();
   preview.textContent = name ? `…/${addressFor(name)}/` : "…";
+});
+
+// Thundermail keeps an account's calendars at an address worked out from the
+// account, so typing your address is enough and the field below fills itself in.
+// It stops the moment you touch that field: a guess that overwrites something
+// somebody typed is worse than no guess at all.
+const homeField = document.querySelector("#home");
+const userField = document.querySelector("#user");
+const guessed = document.querySelector("#guessed");
+const byHand = document.querySelector("#by-hand");
+let typedTheAddress = false;
+
+homeField.addEventListener("input", () => {
+  typedTheAddress = homeField.value.trim() !== "";
+  if (typedTheAddress) {
+    guessed.hidden = true;
+    byHand.hidden = false;
+  }
+});
+
+userField.addEventListener("input", () => {
+  if (typedTheAddress) return;
+  const guess = homeFor(userField.value);
+  homeField.value = guess ?? "";
+  guessed.hidden = !guess;
+  byHand.hidden = Boolean(guess);
 });
 
 /** Run one action, with the buttons off and whatever went wrong reported. */

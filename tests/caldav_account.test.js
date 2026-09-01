@@ -23,6 +23,7 @@ import {
   defaultAmong,
   defaultIn,
   escapeXml,
+  homeFor,
   makeBody,
   onThisMachine,
   parseXml,
@@ -162,6 +163,26 @@ test("the address comes from the name, as it does in the CLI", () => {
   assert.equal(addressFor("ticket 7067"), "ticket-7067");
   assert.equal(addressFor("Réunion budgétaire!"), "r-union-budg-taire");
   assert.equal(addressFor("  "), "calendar");
+});
+
+test("a Thundermail address knows where its calendars are", () => {
+  assert.equal(
+    homeFor("nemo@thundermail.com"),
+    "https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/",
+  );
+  // Read as typed. The domain is matched case-insensitively because domains are,
+  // but the part before the @ is the server's business and not ours to change.
+  assert.equal(
+    homeFor("Nemo.Test@Thundermail.COM"),
+    "https://mail.thundermail.com/dav/cal/Nemo.Test%40Thundermail.COM/",
+  );
+});
+
+test("nothing is guessed for anybody else", () => {
+  // A wrong path 404s, and a 404 looks exactly like an account with no calendars.
+  for (const user of ["you@example.com", "you@gmail.com", "", "not an address", "@thundermail.com"]) {
+    assert.equal(homeFor(user), null, user);
+  }
 });
 
 test("http is refused unless the server is on this machine", () => {

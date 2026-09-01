@@ -20,6 +20,17 @@
     </p>
 
     <form id="account" autocomplete="off">
+      <label for="user">Your email address</label>
+      <input
+        type="text"
+        id="user"
+        name="user"
+        placeholder="you@thundermail.com"
+        autocomplete="off"
+        spellcheck="false"
+        required
+      />
+
       <label for="home">The address of your calendars</label>
       <input
         type="url"
@@ -30,14 +41,15 @@
         spellcheck="false"
         required
       />
-      <p class="hint">
+      <p class="hint" id="guessed" hidden>
+        Filled in from your address, which is where Thundermail keeps calendars. Change
+        it if yours are somewhere else.
+      </p>
+      <p class="hint" id="by-hand">
         In Thunderbird, right-click a calendar, choose <b>Properties</b>, and copy
         <b>Location</b> — then take the last part off, so it ends after your address.
         An <code>@</code> is written <code>%40</code>.
       </p>
-
-      <label for="user">Username</label>
-      <input type="text" id="user" name="user" autocomplete="off" spellcheck="false" required />
 
       <label for="password">App password</label>
       <input type="password" id="password" name="password" autocomplete="off" required />
