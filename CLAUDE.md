@@ -446,8 +446,12 @@ directory.** `caldav_account.js` is shared, so it stays at the repo root and get
 copied into `build/` at packaging time rather than committed twice. Run it again
 after editing the shared file; `firefox-addon/` itself you edit in place.
 
-**Verified in Firefox on 2026-09-01**, loaded from `about:debugging`: it asked
-for permission to talk to the server named in the form, and then worked. So
+**Verified in Firefox on 2026-09-01**, loaded from `about:debugging`, against
+the real `nemo@thundermail.com` account and not a stand-in: it asked for
+permission to talk to the server named in the form, listed the calendars, and
+made one. The round trip is closed at both ends — the add-on creates the
+calendar, `caldav_delete_calendars.py --only` takes it away again — so nothing
+in either half of that loop is now inferred from a fake server. So
 `optional_host_permissions` plus `permissions.request()` on the click is the
 right shape in Firefox MV3, and asking outright rather than checking
 `permissions.contains()` first — which would spend the user gesture — is what
