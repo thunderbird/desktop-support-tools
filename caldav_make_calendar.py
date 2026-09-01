@@ -42,8 +42,8 @@ import re
 import sys
 from xml.sax.saxutils import escape
 
+from caldav_account import Account, _path_of
 from caldav_asking import Refused, add_confirmation, add_credentials, agreed, ready
-from caldav_delete_calendars import Account, _path_of
 
 # The body Thundermail's Stalwart answered 201 to on 2026-08-01. RFC 4791 allows
 # more properties here -- supported-calendar-component-set, a description, a

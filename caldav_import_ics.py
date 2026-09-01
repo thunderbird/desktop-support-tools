@@ -83,9 +83,8 @@ from caldav_asking import (
     agreed,
     ready,
 )
+from caldav_account import CALDAV, DAV
 from caldav_delete_events import (
-    CALDAV,
-    DAV,
     ENTRY_TYPES,
     Calendar,
     _name_of,

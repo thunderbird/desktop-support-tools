@@ -40,10 +40,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
 from anonymize_ics import _count
+from caldav_account import Account, _path_of, default_among
 from caldav_asking import (
     NO,
     QUIT,
@@ -53,89 +53,10 @@ from caldav_asking import (
     add_credentials,
     ready,
 )
-from caldav_delete_events import CALDAV, DAV, Calendar
-
-# What is in the account: every child collection, what kind it is, and what it
-# is called. The kind matters -- an account's calendar home also holds the
-# scheduling inbox and outbox, which are collections but are not calendars and
-# must not be deleted.
-LISTING = """<?xml version="1.0" encoding="utf-8"?>
-<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-  <D:prop>
-    <D:resourcetype/>
-    <D:displayname/>
-    <D:current-user-principal/>
-    <C:schedule-default-calendar-URL/>
-  </D:prop>
-</D:propfind>
-"""
-
-# Which calendar the account treats as its default. Servers put this in
-# different places, so it gets asked for wherever it might be.
-DEFAULT = """<?xml version="1.0" encoding="utf-8"?>
-<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-  <D:prop>
-    <C:schedule-default-calendar-URL/>
-  </D:prop>
-</D:propfind>
-"""
 
 
-def _path_of(href: str) -> str:
-    """A href as a bare path, however the server chose to write it."""
-    return (urlsplit(href).path or href).rstrip("/")
-
-
-class Account(Calendar):
-    """An account's calendars, reached over the connection Calendar opens."""
-
-    def calendars(self) -> tuple[list[tuple[str, str]], str | None]:
-        """Every calendar as its address and name, and which one is default."""
-        root, _ = self._multistatus("PROPFIND", LISTING, "1")
-
-        default = None
-        found = []
-        principal = None
-        for response in root.findall(f"{{{DAV}}}response"):
-            href = (response.findtext(f"{{{DAV}}}href") or "").strip()
-            kind = response.find(f".//{{{DAV}}}resourcetype")
-            if principal is None:
-                principal = response.findtext(
-                    f".//{{{DAV}}}current-user-principal/{{{DAV}}}href"
-                )
-            if default is None:
-                default = response.findtext(
-                    f".//{{{CALDAV}}}schedule-default-calendar-URL/{{{DAV}}}href"
-                )
-            if not href or kind is None:
-                continue
-            # A calendar, and specifically not the scheduling inbox or outbox,
-            # which are collections in the same place and would break the
-            # account if they went.
-            if kind.find(f"{{{CALDAV}}}calendar") is None:
-                continue
-            if kind.find(f"{{{CALDAV}}}schedule-inbox") is not None:
-                continue
-            if kind.find(f"{{{CALDAV}}}schedule-outbox") is not None:
-                continue
-            name = (response.findtext(f".//{{{DAV}}}displayname") or "").strip()
-            found.append((href, name or "(unnamed)"))
-
-        if default is None and principal:
-            default = self._default_from(principal)
-        return found, _path_of(default) if default else None
-
-    def _default_from(self, principal: str) -> str | None:
-        """Ask the account's principal which calendar is the default one."""
-        here = self.path
-        try:
-            self.path = _path_of(principal) + "/"
-            root, _ = self._multistatus("PROPFIND", DEFAULT, "0")
-        except SystemExit:
-            return None
-        finally:
-            self.path = here
-        return root.findtext(f".//{{{CALDAV}}}schedule-default-calendar-URL/{{{DAV}}}href")
+class Deleter(Account):
+    """An account you can take a calendar off, over the connection Account opens."""
 
     def delete_calendar(self, href: str) -> tuple[bool, str]:
         """Delete one whole calendar. Returns whether it went, and why not."""
@@ -181,13 +102,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        account = Account(args.home, user, password)
+        account = Deleter(args.home, user, password)
     except ValueError as error:
         print(str(error), file=sys.stderr)
         return 1
 
     try:
-        calendars, default = account.calendars()
+        calendars, advertised = account.calendars()
         if not calendars:
             print(
                 f"No calendars under {account.path}.\n"
@@ -196,27 +117,28 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
+        default, said = default_among(calendars, advertised)
         keep = {name.casefold() for name in args.keep}
         doomed = []
         print(f"{_count(len(calendars), 'calendar')} under {account.path}:\n")
         for href, name in calendars:
             path = _path_of(href)
+            # Guessing the default from its address is normally a bad idea, but
+            # the only cost of guessing wrong here is keeping a calendar you
+            # meant to delete, and the server refusing remains the real
+            # protection.
             if default and path == default:
-                why = "kept, it is the default"
+                why = ("kept, it is the default" if said
+                       else "kept, its address says default and the server would not say")
             elif name.casefold() in keep:
                 why = "kept, you asked"
-            # Guessing from an address is normally a bad idea, but the only cost
-            # of guessing wrong here is keeping a calendar you meant to delete,
-            # and the server refusing remains the real protection.
-            elif not default and path.rsplit("/", 1)[-1].casefold() == "default":
-                why = "kept, its address says default and the server would not say"
             else:
                 why = "would be deleted"
                 doomed.append((href, name))
             print(f"  {name}")
             print(f"    {path}  --  {why}")
 
-        if not default:
+        if not said:
             print(
                 "\nThe server did not say which calendar is its default, so that was worked out\n"
                 "from the addresses. Any calendar above that turns out to be the default anyway\n"

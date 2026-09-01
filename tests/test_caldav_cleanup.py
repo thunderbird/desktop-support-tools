@@ -30,8 +30,10 @@ import caldav_asking as asking_tool  # noqa: E402
 import caldav_delete_calendars as calendars_tool  # noqa: E402
 import caldav_delete_events as events_tool  # noqa: E402
 import caldav_import_ics as import_tool  # noqa: E402
+import caldav_list_calendars as list_tool  # noqa: E402
 import caldav_make_calendar as make_tool  # noqa: E402
-from caldav_delete_calendars import Account  # noqa: E402
+from caldav_account import Account  # noqa: E402
+from caldav_delete_calendars import Deleter  # noqa: E402
 from caldav_make_calendar import Maker, address_for  # noqa: E402
 from caldav_import_ics import (  # noqa: E402
     Importer,
@@ -53,7 +55,8 @@ from caldav_delete_events import (  # noqa: E402
 # without caring which of them it is driving.
 SIGNS_IN = {
     events_tool: "Calendar",
-    calendars_tool: "Account",
+    calendars_tool: "Deleter",
+    list_tool: "Account",
     make_tool: "Maker",
     import_tool: "Importer",
 }
@@ -514,14 +517,14 @@ HOME = multistatus(
 
 def test_scheduling_collections_are_not_calendars() -> None:
     """They are marked as calendars and deleting them breaks invitations."""
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     talking(account, lambda *_: (207, HOME))
     found, _ = account.calendars()
     assert [name for _, name in found] == ["Personal", "ticket 7067", "my 3rd calendar"]
 
 
 def test_the_default_is_kept_when_the_server_says_which_it_is(monkeypatch, capsys) -> None:
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     told = multistatus(
         collection("/dav/cal/you/default", "Personal", "calendar").replace(
             "</D:prop>",
@@ -541,7 +544,7 @@ def test_the_default_is_kept_when_the_server_will_not_say(monkeypatch, capsys) -
     Guessing is tolerable only because guessing wrong keeps a calendar rather
     than deleting one, and the server's own refusal is still the real backstop.
     """
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []
 
     def reply(method, path, body):
@@ -559,7 +562,7 @@ def test_the_default_is_kept_when_the_server_will_not_say(monkeypatch, capsys) -
 
 
 def test_a_refusal_names_the_default_rather_than_an_error_code() -> None:
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     refusal = b'<D:error xmlns:D="DAV:"><A:default-calendar-needed/></D:error>'
     talking(account, lambda *_: (403, refusal))
     gone, why = account.delete_calendar("/dav/cal/you/default")
@@ -569,12 +572,116 @@ def test_a_refusal_names_the_default_rather_than_an_error_code() -> None:
 
 def test_pointing_at_one_calendar_says_so(monkeypatch, capsys) -> None:
     """A calendar has no calendars in it, and that is a mistake worth naming."""
-    account = Account("https://host/dav/cal/you/default/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/default/", "u", "p")
     talking(account, lambda *_: (207, multistatus()))
     code = run(calendars_tool, ["https://host/dav/cal/you/default/", "-u", "u"],
                monkeypatch, account)
     assert code == 1
     assert "take the last part off it" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------
+# Listing calendars
+
+
+ADVERTISED = multistatus(
+    collection("/dav/cal/you/default", "Personal", "calendar").replace(
+        "</D:prop>",
+        "<C:schedule-default-calendar-URL><D:href>/dav/cal/you/default</D:href>"
+        "</C:schedule-default-calendar-URL></D:prop>",
+    )
+    + collection("/dav/cal/you/6e37/", "my 3rd calendar", "calendar")
+)
+
+NO_DEFAULT = multistatus(
+    collection("/dav/cal/you/6e37/", "my 3rd calendar", "calendar")
+    + collection("/dav/cal/you/ticket-7067/", "ticket 7067", "calendar")
+)
+
+
+def list_calendars(argv, monkeypatch, reply=lambda *_: (207, HOME)):
+    """Run the listing tool against a server that answers with reply."""
+    account = Account("https://host/dav/cal/you/", "u", "p")
+    calls = talking(account, reply)
+    return account, calls, lambda: run(list_tool, argv, monkeypatch, account)
+
+
+def test_the_default_calendar_is_named_on_its_own(monkeypatch, capsys) -> None:
+    """One line and nothing else, because it goes straight into a variable."""
+    _, _, go = list_calendars(["https://host/dav/cal/you/", "-u", "u"], monkeypatch)
+    assert go() == 0
+    printed = capsys.readouterr()
+    assert printed.out == "Personal\n"
+
+
+def test_a_guessed_default_says_so_without_spoiling_the_name(monkeypatch, capsys) -> None:
+    """Stalwart advertises nothing, so the caveat has to reach you some other way."""
+    _, _, go = list_calendars(["https://host/dav/cal/you/", "-u", "u"], monkeypatch)
+    assert go() == 0
+    printed = capsys.readouterr()
+    assert printed.out == "Personal\n", "the caveat must not end up in $(...)"
+    assert "worked out from" in printed.err
+
+
+def test_a_default_the_server_named_is_not_called_a_guess(monkeypatch, capsys) -> None:
+    _, _, go = list_calendars(
+        ["https://host/dav/cal/you/", "-u", "u"], monkeypatch, lambda *_: (207, ADVERTISED)
+    )
+    assert go() == 0
+    printed = capsys.readouterr()
+    assert printed.out == "Personal\n"
+    assert "worked out from" not in printed.err
+
+
+def test_no_default_is_a_failure_rather_than_a_blank_line(monkeypatch, capsys) -> None:
+    """An empty line captured into a variable is worse than an error."""
+    _, _, go = list_calendars(
+        ["https://host/dav/cal/you/", "-u", "u"], monkeypatch, lambda *_: (207, NO_DEFAULT)
+    )
+    assert go() == 1
+    printed = capsys.readouterr()
+    assert printed.out == ""
+    assert "--all" in printed.err
+
+
+def test_all_shows_every_calendar_and_marks_the_default(monkeypatch, capsys) -> None:
+    _, _, go = list_calendars(["https://host/dav/cal/you/", "-u", "u", "--all"], monkeypatch)
+    assert go() == 0
+    out = capsys.readouterr().out
+    assert "Personal" in out and "ticket 7067" in out and "my 3rd calendar" in out
+    assert "Inbox" not in out and "Outbox" not in out, "scheduling collections are not calendars"
+    default_line = [line for line in out.splitlines() if "<- default" in line]
+    assert default_line and "/dav/cal/you/default/" in default_line[0]
+
+
+def test_listing_sends_nothing_but_propfind(monkeypatch) -> None:
+    """It is a tool that looks. The certain test for the default deletes something."""
+    for argv in (["https://host/dav/cal/you/", "-u", "u"],
+                 ["https://host/dav/cal/you/", "-u", "u", "--all"]):
+        _, calls, go = list_calendars(argv, monkeypatch)
+        go()
+        assert {method for method, _ in calls} == {"PROPFIND"}
+
+
+def test_listing_one_calendar_says_where_to_look(monkeypatch, capsys) -> None:
+    account = Account("https://host/dav/cal/you/default/", "u", "p")
+    talking(account, lambda *_: (207, multistatus()))
+    code = run(list_tool, ["https://host/dav/cal/you/default/", "-u", "u"], monkeypatch, account)
+    assert code == 1
+    assert "take the last part off it" in capsys.readouterr().err
+
+
+def test_a_default_with_no_name_still_prints_something(monkeypatch, capsys) -> None:
+    """A calendar the server never named has no name to hand back, and that is news."""
+    _, _, go = list_calendars(
+        ["https://host/dav/cal/you/", "-u", "u"],
+        monkeypatch,
+        lambda *_: (207, multistatus(collection("/dav/cal/you/default", "", "calendar"))),
+    )
+    assert go() == 0
+    printed = capsys.readouterr()
+    assert printed.out.strip() == "(unnamed)"
+    assert "no name of its own" in printed.err
 
 
 # --------------------------------------------------------------------------
@@ -1145,15 +1252,17 @@ def test_a_server_refusing_an_entry_is_reported_rather_than_counted(monkeypatch,
         (events_tool, ["https://host/c/"]),
         (calendars_tool, ["https://host/dav/cal/you/"]),
         (make_tool, ["https://host/dav/cal/you/", "scratch"]),
+        (list_tool, ["https://host/dav/cal/you/"]),
         (import_tool, ["https://host/c/", str(FIXTURES / "ics-identities.expected.ics")]),
     ],
-    ids=["events", "calendars", "make", "import"],
+    ids=["events", "calendars", "make", "list", "import"],
 )
 def test_every_tool_takes_the_credentials_from_the_environment(tool, argv, monkeypatch) -> None:
     kind = {
         events_tool: Calendar,
-        calendars_tool: Account,
+        calendars_tool: Deleter,
         make_tool: Maker,
+        list_tool: Account,
         import_tool: Importer,
     }[tool]
     calendar = kind(argv[0], "ignored", "ignored")
@@ -1389,7 +1498,7 @@ def test_yes_does_not_mean_delete(monkeypatch, capsys) -> None:
 
 
 def test_confirming_picks_which_calendars_go(monkeypatch, capsys) -> None:
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []
 
     def reply(method, path, body):
@@ -1407,7 +1516,7 @@ def test_confirming_picks_which_calendars_go(monkeypatch, capsys) -> None:
 
 
 def test_stopping_leaves_the_calendars_after_it(monkeypatch, capsys) -> None:
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []
 
     def reply(method, path, body):
@@ -1425,7 +1534,7 @@ def test_stopping_leaves_the_calendars_after_it(monkeypatch, capsys) -> None:
 
 
 def test_yes_deletes_the_calendars_without_asking(monkeypatch, capsys) -> None:
-    account = Account("https://host/dav/cal/you/", "u", "p")
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []
 
     def reply(method, path, body):

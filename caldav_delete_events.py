@@ -61,14 +61,13 @@ Properties, and copy the Location field.
 from __future__ import annotations
 
 import argparse
-import base64
-import http.client
 import sys
 import time
 import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
+from caldav_account import CALDAV, DAV, Connection
 from caldav_asking import (
     NO,
     QUIT,
@@ -90,9 +89,6 @@ from anonymize_ics import (
     URI_PLACEHOLDER,
     _unfold,
 )
-
-DAV = "DAV:"
-CALDAV = "urn:ietf:params:xml:ns:caldav"
 
 # The entries a calendar file holds. Anything else -- the timezone definitions,
 # the calendar's own headers -- is not something that was imported as an entry.
@@ -289,8 +285,13 @@ def looks_scrubbed(text: str) -> bool:
     return False
 
 
-class Calendar:
-    """One calendar on a CalDAV server, over a connection kept open."""
+class Calendar(Connection):
+    """One calendar on a CalDAV server, over the connection Connection opens.
+
+    The two sizes are here rather than on Connection because they are about
+    entries: how many a listing asks for at a time, and how many are fetched at
+    once. An account's calendars are a handful either way.
+    """
 
     def __init__(
         self,
@@ -301,98 +302,9 @@ class Calendar:
         page: int = PAGE,
         batch: int = BATCH,
     ):
-        parts = urlsplit(url)
-        if parts.scheme not in ("http", "https"):
-            raise ValueError(f"{url} is not an http or https address")
-        if not parts.path:
-            raise ValueError(f"{url} has no path, so it cannot be a calendar")
-        self.secure = parts.scheme == "https"
-        self.host = parts.hostname or ""
-        self.port = parts.port
-        self.timeout = timeout
+        super().__init__(url, user, password, timeout)
         self.page = page
         self.batch = batch
-        # A calendar is a collection, so its address ends in a slash. Servers
-        # differ on whether they forgive a missing one; none mind an extra.
-        self.path = parts.path if parts.path.endswith("/") else parts.path + "/"
-        credentials = f"{user}:{password}".encode()
-        self.authorization = "Basic " + base64.b64encode(credentials).decode("ascii")
-        self.connection: http.client.HTTPConnection | None = None
-
-    def address(self) -> str:
-        """The calendar's address as the tool understands it, to print back at you.
-
-        Assembled from the parts rather than echoed, because what a request goes
-        to is the path with its trailing slash rather than whatever was typed.
-        Which means the scheme and the port are assembled too, and neither is a
-        detail to lose: a local server on some port is exactly where a
-        reproduction that must not touch production goes.
-        """
-        port = f":{self.port}" if self.port else ""
-        return f"{'https' if self.secure else 'http'}://{self.host}{port}{self.path}"
-
-    def _connect(self) -> http.client.HTTPConnection:
-        if self.connection is None:
-            opener = http.client.HTTPSConnection if self.secure else http.client.HTTPConnection
-            self.connection = opener(self.host, self.port, timeout=self.timeout)
-        return self.connection
-
-    def close(self) -> None:
-        if self.connection is not None:
-            self.connection.close()
-            self.connection = None
-
-    def request(
-        self, method: str, path: str, body: str | None = None, headers: dict | None = None
-    ) -> tuple[int, bytes]:
-        """Make one request, reconnecting once if the server dropped us.
-
-        Hundreds of deletions go down a single connection and servers close idle
-        ones, so a dropped connection is routine rather than a failure.
-        """
-        head = {"Authorization": self.authorization, "User-Agent": "desktop-support-tools"}
-        if body is not None:
-            head["Content-Type"] = "application/xml; charset=utf-8"
-        head.update(headers or {})
-        payload = body.encode("utf-8") if body is not None else None
-
-        for attempt in (1, 2):
-            try:
-                connection = self._connect()
-                connection.request(method, path, body=payload, headers=head)
-                response = connection.getresponse()
-                return response.status, response.read()
-            except (http.client.HTTPException, OSError):
-                self.close()
-                if attempt == 2:
-                    raise
-        raise AssertionError("unreachable")
-
-    def _multistatus(self, method: str, body: str, depth: str) -> tuple[ET.Element, bool]:
-        """Make a request that returns a list, and say whether it was cut short.
-
-        A server that will not hand back everything says so rather than quietly
-        stopping, and taking a short reply for a short calendar is how you end
-        up deleting half of what you meant to.
-        """
-        status, raw = self.request(method, self.path, body, {"Depth": depth})
-        if status == 401:
-            raise SystemExit(
-                "The server would not accept that username and password.\n"
-                "CalDAV here needs an app password; an OAuth2 account password will not do.\n"
-                "Some servers also want the bare username rather than the full address."
-            )
-        if status == 404:
-            raise SystemExit(f"There is no calendar at {self.path} -- check the Location field.")
-        if status != 207:
-            raise SystemExit(f"Asking the server about the calendar failed: HTTP {status}")
-        try:
-            root = ET.fromstring(raw)
-        except ET.ParseError as error:
-            raise SystemExit(f"The server's reply was not readable XML: {error}") from None
-
-        cut_short = root.find(f".//{{{DAV}}}number-of-matches-within-limits") is not None
-        return root, cut_short
 
     def _entry_addresses(self, root: ET.Element) -> list[tuple[str, str]]:
         """Each entry's address and version tag, from a listing."""

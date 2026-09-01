@@ -145,17 +145,23 @@ export CALDAV_USER='nemo@thundermail.com'
 export CALDAV_PASSWORD='...'          # or leave it unset and be asked
 
 CAL_HOME='https://mail.thundermail.com/dav/cal/nemo%40thundermail.com/'
+uv run caldav_list_calendars.py "$CAL_HOME" --all     # what is there already
 uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"
 uv run caldav_import_ics.py "${CAL_HOME}ticket-7067/" scrubbed.ics    # dry run
 uv run caldav_delete_calendars.py "$CAL_HOME"                        # dry run
 uv run caldav_delete_events.py "${CAL_HOME}ticket-7067/" --everything
 ```
 
-All four take the username from `-u`, from `CALDAV_USER`, or by asking, in that
+All five take the username from `-u`, from `CALDAV_USER`, or by asking, in that
 order, and the app password from `CALDAV_PASSWORD` or by asking. Exporting both
 is worth doing because this is half a dozen commands against one account, and
 leaving `CALDAV_PASSWORD` unset is worth doing because a password you type is a
 password that is not in your shell history.
+
+`caldav_list_calendars.py` is the one that only looks: with no flags it prints
+the name of the account's default calendar and nothing else, so it can go into a
+variable, and `--all` lists every calendar with its address. It sends `PROPFIND`
+and never anything else.
 
 `caldav_make_calendar.py` works the calendar's address out from its name
 (`ticket 7067` → `.../ticket-7067/`, or give `--path`), and refuses if the
@@ -203,7 +209,8 @@ going up, and stop being asked.
 five times already and typing the count is friction rather than safety. On
 `caldav_make_calendar.py` it does nothing, since nothing there asks unless you
 pass `--confirm`; it is accepted so that a loop can pass the same flag to all
-four.
+four of the tools that change something. `caldav_list_calendars.py` takes
+neither flag, because it changes nothing and so has nothing to ask you about.
 
 ### What you need first
 
@@ -230,6 +237,12 @@ answer differently without it.
 ### See what is there
 
 ```sh
+uv run caldav_list_calendars.py "$CAL_HOME" --all
+```
+
+or the request it makes, with nothing in the way:
+
+```sh
 curl -s -u "$CALDAV_USER" -X PROPFIND -H 'Depth: 1' \
   -H 'Content-Type: application/xml; charset=utf-8' \
   --data-binary '<?xml version="1.0" encoding="utf-8"?>
@@ -253,6 +266,12 @@ default calendar, the one never to test against. **Thundermail does not answer
 it** (checked 2026-08-01), so there the default is identifiable only by its
 `/default/` path segment, and by its refusing to be deleted. Other servers do
 answer it, which is why it stays in the request.
+
+That is also why `caldav_list_calendars.py` tells you which of the two answers
+you are getting: a default the server named is a fact, and a default recognised
+by its address is a guess that happens to be right on every server tried so far.
+The guess is the sort of thing to say out loud, since acting on the wrong one
+means testing against the calendar you meant to leave alone.
 
 ### Make one
 

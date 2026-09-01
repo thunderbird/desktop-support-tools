@@ -56,6 +56,7 @@ uv run parse_troubleshooting.py fixtures/thundermail-correct.txt
 pbpaste | uv run parse_troubleshooting.py                 # parse a real paste
 uv run anonymize_ics.py Calendar.ics -o scrubbed.ics      # scrub a calendar
 uv run anonymize_ics.py --check scrubbed.ics              # audit a scrubbed one
+uv run caldav_list_calendars.py "$CAL_HOME"               # names the default calendar
 uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"  # a calendar to test in
 uv run caldav_import_ics.py "$CAL" scrubbed.ics           # dry run; --upload sends it
 uv run caldav_delete_events.py "$CAL" --everything        # dry run; --delete empties it
@@ -310,7 +311,7 @@ preference.
 applies to the tools behind the web page, which exist so somebody can paste
 something and get an answer. This one is a step support staff run over a file
 before attaching it to a bug; it never had a page to be half of. The same goes
-for the four CalDAV tools: a browser cannot send `MKCALENDAR` or a cross-origin
+for the five CalDAV tools: a browser cannot send `MKCALENDAR` or a cross-origin
 `PUT` to somebody's mail server, and it should not be asked to.
 
 ## Sending a calendar back up: `caldav_import_ics.py`
@@ -503,7 +504,9 @@ verdicts.py                 judge parsed settings against settings.json
 parse_troubleshooting.py    CLI: dump or fragment -> JSON
 check_settings.py           CLI: dump or fragment -> per-account verdicts
 anonymize_ics.py            CLI: calendar -> the same calendar without the people
+caldav_account.py           shared by the CalDAV tools: the connection, and the calendars on it
 caldav_asking.py            shared by the CalDAV tools: credentials, and confirming
+caldav_list_calendars.py    CLI: name the default calendar, and list the rest
 caldav_make_calendar.py     CLI: make a calendar to test in, which Thunderbird cannot
 caldav_import_ics.py        CLI: calendar file -> one entry per request on a server
 caldav_delete_events.py     CLI: take a scrubbed import back off a server
