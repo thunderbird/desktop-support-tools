@@ -20,6 +20,14 @@ from Thunderbird's Properties dialog with the last part taken off:
     https://mail.example.com/dav/cal/you@example.com/some-calendar/  <- one calendar
     https://mail.example.com/dav/cal/you@example.com/                <- HOME
 
+    uv run caldav_delete_calendars.py HOME --only "ticket 7067" --delete
+
+--only is the one to reach for when you know which calendar you mean: it takes
+the name Thunderbird shows or the last part of the address, may be given more
+than once, and everything not named is left alone. A name that matches nothing
+stops the run rather than deleting nothing quietly. It contradicts --keep, so no
+command may have both.
+
 It reports and changes nothing until you add --delete. With --delete it asks you
 to type the number of calendars first; --delete --confirm asks about each one
 instead, and takes yes, no, all the rest, or stop here. --yes asks nothing.
@@ -81,12 +89,24 @@ def main(argv: list[str] | None = None) -> int:
         asks="ask about each calendar: yes, no, all the rest, or stop here",
         skips="do not ask to confirm at all; this does not imply --delete",
     )
-    parser.add_argument(
+    # The two ways of picking contradict each other, so no command may have
+    # both: --keep says what to spare out of everything, --only says what to
+    # take out of nothing.
+    picking = parser.add_mutually_exclusive_group()
+    picking.add_argument(
         "--keep",
         action="append",
         default=[],
         metavar="NAME",
         help="a calendar to leave alone, by name; may be given more than once",
+    )
+    picking.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="delete only this one, by name or by the last part of its address;"
+        " may be given more than once",
     )
     parser.add_argument(
         "--delete",
@@ -119,10 +139,17 @@ def main(argv: list[str] | None = None) -> int:
 
         default, said = default_among(calendars, advertised)
         keep = {name.casefold() for name in args.keep}
+        # Named by their display name or by the last part of their address,
+        # because both are in front of you: the name is what Thunderbird shows
+        # and the address is what this tool and the add-on print.
+        wanted = {name.strip("/").casefold() for name in args.only}
+        answered_to: set[str] = set()
         doomed = []
         print(f"{_count(len(calendars), 'calendar')} under {account.path}:\n")
         for href, name in calendars:
             path = _path_of(href)
+            goes_by = {name.casefold(), path.rsplit("/", 1)[-1].casefold()}
+            answered_to |= goes_by & wanted
             # Guessing the default from its address is normally a bad idea, but
             # the only cost of guessing wrong here is keeping a calendar you
             # meant to delete, and the server refusing remains the real
@@ -132,6 +159,8 @@ def main(argv: list[str] | None = None) -> int:
                        else "kept, its address says default and the server would not say")
             elif name.casefold() in keep:
                 why = "kept, you asked"
+            elif wanted and not (goes_by & wanted):
+                why = "kept, not one you named"
             else:
                 why = "would be deleted"
                 doomed.append((href, name))
@@ -144,6 +173,22 @@ def main(argv: list[str] | None = None) -> int:
                 "from the addresses. Any calendar above that turns out to be the default anyway\n"
                 "will refuse and be reported, not deleted."
             )
+
+        # A name that matches nothing is a typo, and a typo that quietly deletes
+        # nothing is one you make again. Say which, and say it before anything
+        # is deleted rather than after.
+        missing = [name for name in args.only if name.strip("/").casefold() not in answered_to]
+        if missing:
+            print(f"\nNothing here is called {', '.join(repr(name) for name in missing)}.")
+            print("Nothing was deleted. The names above are what there is to choose from.")
+            return 1
+
+        if wanted and not doomed:
+            # Everything named turned out to be the default, or spared for some
+            # other reason listed above. You asked for a deletion and did not
+            # get one, so this is not a quiet success.
+            print("\nNothing you named can be deleted, for the reasons above.")
+            return 1
 
         if not doomed:
             print("\nNothing to do.")

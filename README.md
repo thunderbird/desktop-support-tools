@@ -413,6 +413,23 @@ synthetically.
 ### Delete one
 
 ```sh
+uv run caldav_delete_calendars.py "$CAL_HOME" --only "ticket 7067"           # dry run
+uv run caldav_delete_calendars.py "$CAL_HOME" --only "ticket 7067" --delete
+```
+
+`--only` takes the name Thunderbird shows **or** the last part of the address —
+both are in front of you, one in Thunderbird and one in this tool's own listing —
+and leaves everything else alone. Give it more than once for several. A name
+that matches nothing stops the run and says so, rather than deleting nothing and
+looking like success. It contradicts `--keep`, so no command takes both.
+
+Without `--only` the tool works the other way round: everything except the
+default and anything you `--keep`. That is the right shape for clearing out an
+account, and the wrong one when you mean a single calendar.
+
+The same thing with nothing in the way:
+
+```sh
 curl -i -u "$CALDAV_USER" -X DELETE "${CAL_HOME}ticket-7067/"
 ```
 

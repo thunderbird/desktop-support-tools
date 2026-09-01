@@ -1544,6 +1544,97 @@ def test_yes_does_not_mean_delete(monkeypatch, capsys) -> None:
     assert "dry run" in capsys.readouterr().out
 
 
+def test_only_deletes_the_one_you_named(monkeypatch, capsys) -> None:
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067", "--delete"],
+               monkeypatch, account, answer="1")
+    assert code == 0
+    assert deleted == ["/dav/cal/you/ticket-7067/"], "the other calendars are not candidates"
+    assert "kept, not one you named" in capsys.readouterr().out
+
+
+def test_only_takes_the_address_as_well_as_the_name(monkeypatch) -> None:
+    """The add-on and caldav_list_calendars.py both print the address, so it is
+    as much in front of you as the name is."""
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket-7067", "--delete"],
+               monkeypatch, account, answer="1")
+    assert code == 0
+    assert deleted == ["/dav/cal/you/ticket-7067/"]
+
+
+def test_a_name_that_matches_nothing_deletes_nothing(monkeypatch, capsys) -> None:
+    """A typo that quietly deletes nothing is a typo you make again."""
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7607", "--delete", "--yes"],
+               monkeypatch, account)
+    assert code == 1
+    assert deleted == []
+    assert "Nothing here is called 'ticket 7607'" in capsys.readouterr().out
+
+
+def test_naming_the_default_still_keeps_it(monkeypatch, capsys) -> None:
+    """Asking for it by name is not a way round the one rule this tool has."""
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, HOME)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "Personal", "--delete", "--yes"],
+               monkeypatch, account)
+    assert code == 1
+    assert deleted == []
+    printed = capsys.readouterr().out
+    assert "default" in printed
+    assert "Nothing you named can be deleted" in printed
+
+
+def test_only_and_keep_contradict_each_other(monkeypatch) -> None:
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    talking(account, lambda *_: (207, HOME))
+    with pytest.raises(SystemExit) as raised:
+        run(calendars_tool,
+            ["https://host/dav/cal/you/", "-u", "u", "--keep", "a", "--only", "b"],
+            monkeypatch, account)
+    assert raised.value.code == 2, "argparse refuses the pair rather than picking one"
+
+
 def test_confirming_picks_which_calendars_go(monkeypatch, capsys) -> None:
     account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []

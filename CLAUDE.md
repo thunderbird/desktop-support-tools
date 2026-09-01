@@ -61,6 +61,7 @@ uv run package_addon.py                                   # build/ the Firefox a
 uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"  # a calendar to test in
 uv run caldav_import_ics.py "$CAL" scrubbed.ics           # dry run; --upload sends it
 uv run caldav_delete_events.py "$CAL" --everything        # dry run; --delete empties it
+uv run caldav_delete_calendars.py "$CAL_HOME" --only NAME # dry run; --delete removes that one
 python3 -m http.server 8000                               # serve the webapp
 ```
 
