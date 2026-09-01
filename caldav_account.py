@@ -36,6 +36,12 @@ from urllib.parse import urlsplit
 DAV = "DAV:"
 CALDAV = "urn:ietf:params:xml:ns:caldav"
 
+# How much of a reply to read, matching MOST in caldav_account.js. A calendar
+# home listing is kilobytes, so a reply past this is a server that is broken or
+# playing, and either way is not something to hold in memory. The timeout that
+# goes with it is Connection's, which the JavaScript half now matches.
+MOST = 5 * 1024 * 1024
+
 # What is in the account: every child collection, what kind it is, and what it
 # is called. The kind matters -- an account's calendar home also holds the
 # scheduling inbox and outbox, which are collections but are not calendars and
@@ -140,7 +146,13 @@ class Connection:
                 connection = self._connect()
                 connection.request(method, path, body=payload, headers=head)
                 response = connection.getresponse()
-                return response.status, response.read()
+                raw = response.read(MOST + 1)
+                if len(raw) > MOST:
+                    raise SystemExit(
+                        f"{self.host} sent more than {MOST // 1024 // 1024} MB in one reply,"
+                        " which is not a listing. Nothing was read."
+                    )
+                return response.status, raw
             except (http.client.HTTPException, OSError):
                 self.close()
                 if attempt == 2:

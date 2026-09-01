@@ -24,6 +24,8 @@ import {
   defaultIn,
   escapeXml,
   homeFor,
+  MOST,
+  SECONDS,
   makeBody,
   onThisMachine,
   parseXml,
@@ -248,6 +250,55 @@ test("both halves ask the server for exactly the same thing", () => {
   const bodyOf = (name) => python.split(`${name} = """`)[1].split('"""')[0];
   assert.equal(LISTING.trim(), bodyOf("LISTING").trim());
   assert.equal(DEFAULT.trim(), bodyOf("DEFAULT").trim());
+});
+
+test("a reply full of unmatched quotes is read in a straight line", () => {
+  // The tag scanner used to be a regular expression with an alternation under a
+  // lazy quantifier: 2,000 quotes took 14ms and 20,000 took 1,361ms, so a
+  // hostile server could hang the page it was talking to. Linear now.
+  const started = performance.now();
+  calendarsIn(`<a ${'"'.repeat(40000)}>`);
+  const took = performance.now() - started;
+  assert.ok(took < 1000, `took ${Math.round(took)}ms, which is the backtracking back`);
+});
+
+test("a deeply nested reply is read rather than exhausting the stack", () => {
+  // find() and findAll() used to recurse per element, and 10,000 deep -- a few
+  // hundred kilobytes to send -- threw RangeError instead of parsing.
+  const deep = 50000;
+  const xml =
+    `<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
+    "<D:x>".repeat(deep) +
+    `<D:response><D:href>/c/one/</D:href><D:prop>` +
+    `<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` +
+    `<D:displayname>Buried</D:displayname></D:prop></D:response>` +
+    "</D:x>".repeat(deep) +
+    `</D:multistatus>`;
+  assert.deepEqual(calendarsIn(xml).calendars.map((c) => c.name), ["Buried"]);
+});
+
+test("CDATA is text, not markup", () => {
+  const xml = `<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+    <D:response><D:href>/c/one/</D:href>
+      <D:prop><D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+      <D:displayname><![CDATA[Budget > forecast]]></D:displayname></D:prop></D:response>
+  </D:multistatus>`;
+  assert.equal(calendarsIn(xml).calendars[0].name, "Budget > forecast");
+});
+
+test("a quoted angle bracket does not end a tag", () => {
+  const xml = `<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" x="a>b">
+    <D:response><D:href>/c/one/</D:href>
+      <D:prop><D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+      <D:displayname>One</D:displayname></D:prop></D:response>
+  </D:multistatus>`;
+  assert.deepEqual(calendarsIn(xml).calendars.map((c) => c.name), ["One"]);
+});
+
+test("the limits are the ones the Python half uses", () => {
+  const python = readFileSync(join(FIXTURES, "..", "caldav_account.py"), "utf8");
+  assert.match(python, new RegExp(`MOST = ${MOST / 1024 / 1024} \\* 1024 \\* 1024`));
+  assert.match(python, new RegExp(`timeout: float = ${SECONDS}`));
 });
 
 test("parseXml keeps document order", () => {

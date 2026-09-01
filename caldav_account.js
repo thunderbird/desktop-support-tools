@@ -20,6 +20,14 @@ export const CALDAV = "urn:ietf:params:xml:ns:caldav";
 // What a calendar with no name is called, matching UNNAMED in caldav_account.py.
 export const UNNAMED = "(unnamed)";
 
+// How long to wait for a server, and how much of its answer to read. Both
+// match caldav_account.py: SECONDS is Connection's timeout, MOST is what
+// request() will read. A calendar home listing is kilobytes, so a reply beyond
+// this is a server that is broken or playing, and either way is not something
+// to buffer in a popup.
+export const SECONDS = 60;
+export const MOST = 5 * 1024 * 1024;
+
 // What is in the account: every child collection, what kind it is, and what it
 // is called. Byte for byte the body caldav_account.py sends.
 export const LISTING = `<?xml version="1.0" encoding="utf-8"?>
@@ -253,32 +261,57 @@ export function escapeXml(text) {
 // because the prefix is the server's choice -- D:, A:, d:, or none at all --
 // and a parser that keys on "D:href" works until the day a server changes it.
 
-const NAME = "[^\\s/>=]+";
-const TAG = new RegExp(`<(/?)(${NAME})((?:[^>"']|"[^"]*"|'[^']*')*?)(/?)>`, "g");
-const ATTRIBUTE = new RegExp(`(${NAME})\\s*=\\s*("[^"]*"|'[^']*')`, "g");
+// An attribute name cannot contain a quote, and saying so is what keeps this
+// linear: on a run of quotes the name fails to match at every position and the
+// scan moves on, rather than consuming the run and backing out of it one
+// character at a time. Excluding them took 40,000 quotes from 5.5s to 3ms.
+const ATTRIBUTE = /([^\s=/"'<>]+)\s*=\s*("[^"]*"|'[^']*')/g;
 
 /** The document as a tree of {ns, name, children, text}. */
 export function parseXml(text) {
   const source = String(text)
     .replace(/<\?[\s\S]*?\?>/g, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<!DOCTYPE[^>]*>/gi, "");
+    .replace(/<!--[\s\S]*?-->/g, "");
 
   const root = { ns: null, name: "#document", children: [], text: "" };
   const stack = [{ node: root, namespaces: {} }];
-  let last = 0;
-  TAG.lastIndex = 0;
+  let at = 0;
+  let since = 0;
 
-  for (let tag = TAG.exec(source); tag; tag = TAG.exec(source)) {
-    const [whole, closing, qualified, attributes, selfClosing] = tag;
-    const between = source.slice(last, tag.index);
-    last = tag.index + whole.length;
+  while (at < source.length) {
+    const open = source.indexOf("<", at);
+    if (open === -1) break;
+
+    // CDATA is text that happens to contain angle brackets, so it is taken
+    // whole rather than scanned for tags.
+    if (source.startsWith("<![CDATA[", open)) {
+      const ends = source.indexOf("]]>", open);
+      if (ends === -1) break;
+      stack[stack.length - 1].node.text += source.slice(open + 9, ends);
+      at = since = ends + 3;
+      continue;
+    }
+
+    const close = endOfTag(source, open);
+    if (close === -1) break;
+    const between = source.slice(since, open);
     if (between.trim()) stack[stack.length - 1].node.text += decode(between);
+    const inside = source.slice(open + 1, close);
+    at = since = close + 1;
 
-    if (closing) {
+    // A doctype or any other declaration is not an element.
+    if (inside.startsWith("!")) continue;
+
+    if (inside.startsWith("/")) {
       if (stack.length > 1) stack.pop();
       continue;
     }
+
+    const selfClosing = inside.endsWith("/");
+    const body = selfClosing ? inside.slice(0, -1) : inside;
+    const named = /^\s*([^\s/>]+)([\s\S]*)$/.exec(body);
+    if (!named) continue;
+    const [, qualified, attributes] = named;
 
     const namespaces = { ...stack[stack.length - 1].namespaces };
     ATTRIBUTE.lastIndex = 0;
@@ -303,6 +336,31 @@ export function parseXml(text) {
   return root;
 }
 
+/**
+ * Where the tag opened at `from` ends, respecting quoted attribute values.
+ *
+ * Walked character by character rather than matched with a regular expression.
+ * The regex this replaced described the same thing with an alternation under a
+ * lazy quantifier, and a reply full of unmatched quotes made it backtrack:
+ * 2,000 of them took 14ms and 20,000 took 1,361ms, so a hostile server could
+ * hang the page it was talking to. This is linear, and there is nothing to
+ * backtrack.
+ */
+function endOfTag(source, from) {
+  let quote = null;
+  for (let i = from + 1; i < source.length; i++) {
+    const character = source[i];
+    if (quote) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === ">") {
+      return i;
+    }
+  }
+  return -1;
+}
+
 /** Element names are compared case-insensitively: schedule-default-calendar-URL. */
 function matches(node, ns, name) {
   return node.ns === ns && node.name.toLowerCase() === name.toLowerCase();
@@ -314,12 +372,19 @@ function matches(node, ns, name) {
  * Depth rather than a fixed path because the shape above a <response> is the
  * server's business: parseXml() hands back the document, the multistatus sits
  * under it, and a server is free to wrap things differently again.
+ *
+ * Walked with a stack rather than by recursion. The reply is the server's to
+ * shape, and a document nested ten thousand deep -- which is a few hundred
+ * kilobytes to send -- used to exhaust the call stack rather than be read.
  */
-export function findAll(node, ns, name, found = []) {
+export function findAll(node, ns, name) {
+  const found = [];
   if (!node) return found;
-  for (const child of node.children) {
+  const stack = pushChildren([], node);
+  while (stack.length) {
+    const child = stack.pop();
     if (matches(child, ns, name)) found.push(child);
-    else findAll(child, ns, name, found);
+    else pushChildren(stack, child);
   }
   return found;
 }
@@ -327,12 +392,19 @@ export function findAll(node, ns, name, found = []) {
 /** The first descendant with this name, at any depth, or null. */
 export function find(node, ns, name) {
   if (!node) return null;
-  for (const child of node.children) {
+  const stack = pushChildren([], node);
+  while (stack.length) {
+    const child = stack.pop();
     if (matches(child, ns, name)) return child;
-    const deeper = find(child, ns, name);
-    if (deeper) return deeper;
+    pushChildren(stack, child);
   }
   return null;
+}
+
+/** Children onto the stack backwards, so they come off in document order. */
+function pushChildren(stack, node) {
+  for (let i = node.children.length - 1; i >= 0; i--) stack.push(node.children[i]);
+  return stack;
 }
 
 export function textOf(node) {

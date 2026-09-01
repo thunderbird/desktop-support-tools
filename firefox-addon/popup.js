@@ -15,6 +15,8 @@
 import {
   DEFAULT,
   LISTING,
+  MOST,
+  SECONDS,
   addressFor,
   basicAuth,
   calendarsIn,
@@ -267,21 +269,38 @@ async function dav(method, url, { user, password, body, depth }) {
   if (body !== undefined) headers["Content-Type"] = "application/xml; charset=utf-8";
   if (depth !== undefined) headers.Depth = depth;
 
+  // A deadline for the whole exchange, headers and body alike. Without one, a
+  // server that accepts the connection and then says nothing leaves this page
+  // waiting with its buttons disabled and no way to stop it. The Python side
+  // has had this all along, as Connection's timeout.
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), SECONDS * 1000);
+  try {
+    return await exchange(method, url, headers, body, deadline.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function exchange(method, url, headers, body, signal) {
+  const host = new URL(url).host;
   let response;
   try {
     response = await fetch(url, {
       method,
       headers,
       body,
+      signal,
       // No cookies, ever: this signs in with the app password you typed and
       // nothing else, whatever session the browser happens to be holding.
       credentials: "omit",
       cache: "no-store",
     });
-  } catch {
-    throw new Error(
-      `Could not reach ${new URL(url).host}. Check the address, and that you are online.`,
-    );
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`${host} did not answer within ${SECONDS} seconds. Nothing was changed.`);
+    }
+    throw new Error(`Could not reach ${host}. Check the address, and that you are online.`);
   }
 
   if (response.status === 401) {
@@ -296,7 +315,40 @@ async function dav(method, url, { user, password, body, depth }) {
   if (response.status === 507) throw new Error("The account is out of space.");
   if (response.status === 403) throw new Error("The server would not allow that.");
   if (!response.ok && response.status !== 207) throw new Error(`The server answered HTTP ${response.status}.`);
-  return response.text();
+  return readAtMost(response, MOST);
+}
+
+/**
+ * The reply, up to a limit, without holding more than that in memory.
+ *
+ * response.text() reads whatever arrives, and what arrives is the server's
+ * choice. A listing of an account's calendars is kilobytes; anything past MOST
+ * is a broken server or a hostile one, and neither is worth buffering.
+ */
+async function readAtMost(response, limit) {
+  const tooBig = new Error(
+    `${new URL(response.url || "https://x/").host} sent more than ` +
+      `${Math.round(limit / 1024 / 1024)} MB, which is not a calendar listing. Nothing was read.`,
+  );
+  const declared = Number(response.headers.get("Content-Length"));
+  if (Number.isFinite(declared) && declared > limit) throw tooBig;
+  if (!response.body) return response.text();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      throw tooBig;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
 }
 
 /** Draw the calendars, the default marked, and how the default was decided. */
