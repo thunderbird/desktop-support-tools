@@ -466,16 +466,18 @@ Firefox** → **Load Temporary Add-on**, and pick
 Anything more permanent has to be signed, because release Firefox will not
 install an unsigned extension.
 
-**It is not on AMO, and that is the decision rather than the backlog.** This
-goes to staff and volunteers as a signed XPI, distributed by hand. Listing it
+**It is not on a store, and that is the decision rather than the backlog.** This
+goes to staff and volunteers as a signed XPI, distributed by hand. A Firefox
+add-on would be listed on addons.mozilla.org, and a Thunderbird one on
+addons.thunderbird.net; this is on neither. Listing it
 would mean taking on a support burden and release integrity — for an add-on
 whose whole job is handling app passwords — to close a gap that Thunderbird
 itself should close: the client cannot create CalDAV calendars, and that is the
 actual bug. When it can, most of this add-on stops being needed. A signed XPI
 for a few people costs almost nothing and can be thrown away that day.
 
-If a public build is ever wanted, it comes out of the same sources rather than a
-fork: `package_addon.py` assembles the build already, so a variant is a manifest
+If a listed build is ever wanted — on either store — it comes out of the same
+sources rather than a fork: `package_addon.py` assembles the build already, so a variant is a manifest
 difference and a hidden section, not a second copy to keep in step.
 
 The build step exists for one reason: an extension can only load files from

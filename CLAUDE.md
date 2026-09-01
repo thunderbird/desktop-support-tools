@@ -413,8 +413,12 @@ So: when either half changes, change the other, and add the fixture that would
 have caught the difference. A twin that has drifted is worse than no twin,
 because the tests keep passing.
 
-**Staff and volunteers only, by signed XPI, not listed on AMO.** Decided
-2026-09-01. Not because the add-on is dangerous — it sends `PROPFIND` and
+**Staff and volunteers only, by signed XPI, not listed on a store.** Decided
+2026-09-01. The store depends on the add-on and the two are not
+interchangeable: a Firefox add-on is listed on **addons.mozilla.org**, and a
+Thunderbird MailExtension on **addons.thunderbird.net**. The rules below are
+about reach rather than about which site, so they hold for both — including for
+#22, if the Experiment API blocking it is ever cleared. Not because the add-on is dangerous — it sends `PROPFIND` and
 `MKCALENDAR` and nothing else — but because listing it buys a support burden and
 a release-integrity obligation for something Thunderbird core should absorb: a
 client that cannot create a CalDAV calendar is the real bug, and it is filed
@@ -426,12 +430,13 @@ Two things follow, and both are about not building what is not needed yet:
   the server answers 405 — and is undone by deleting; deleting is undone by
   nothing. That is the line, rather than "destructive", which puts creating on
   the wrong side of it.
-- **A read-only public build is not a fork.** If one is ever wanted, it comes out
+- **A read-only published build is not a fork.** If one is ever wanted, it comes out
   of `package_addon.py` as a variant of the same sources. Two directories would
   drift, and the last time these tools drifted it was a security hole.
-- **A public build never carries an irreversible operation.** Standing rule, set
-  2026-09-01. Listing, and creating something that can be deleted again, are the
-  most a build handed to people we cannot reach may do. Deleting a calendar
+- **A published build never carries an irreversible operation.** Standing rule,
+  set 2026-09-01, and it means listed anywhere — AMO or ATN. Listing, and
+  creating something that can be deleted again, are the most a build handed to
+  people we cannot reach may do. Deleting a calendar
   takes its contents with it and nothing in this stack can bring them back, so it
   stays where the person running it can be asked what they meant. This is a
   decision, not a law of nature: reviewers may overrule it, and if they do, that
