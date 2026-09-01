@@ -32,7 +32,12 @@ import {
 } from "../caldav_account.js";
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures");
-const HOMES = ["caldav-home-guessed-default", "caldav-home-advertised-default", "caldav-home-no-default"];
+const HOMES = [
+  "caldav-home-guessed-default",
+  "caldav-home-advertised-default",
+  "caldav-home-no-default",
+  "caldav-home-hostile-principal",
+];
 
 function read(name) {
   return readFileSync(join(FIXTURES, name), "utf8");
@@ -41,13 +46,14 @@ function read(name) {
 for (const name of HOMES) {
   test(`${name} parses to its expected companion`, () => {
     const expected = JSON.parse(read(`${name}.expected.json`));
-    const { calendars, advertised } = calendarsIn(read(`${name}.xml`));
+    const { calendars, advertised, principal } = calendarsIn(read(`${name}.xml`));
 
     assert.deepEqual(
       calendars.map(({ href, path, name: displayed }) => ({ href, path, name: displayed })),
       expected.calendars,
     );
     assert.equal(advertised, expected.advertised);
+    assert.equal(principal, expected.principal);
     assert.deepEqual(defaultAmong(calendars, advertised), expected.default);
   });
 }
@@ -72,6 +78,24 @@ test("a calendar the server never named still has something to show", () => {
 test("the principal is read, for asking it what the home would not say", () => {
   const { principal } = calendarsIn(read("caldav-home-guessed-default.xml"));
   assert.equal(principal, "/dav/princ/you@example.com");
+});
+
+test("a host in a reply is dropped, whichever way it was written", () => {
+  // The one that got through: //host/path is a host with the scheme left off,
+  // and resolving it against the calendar home gives somebody else's origin --
+  // which is then where the next request, and the app password on it, would go.
+  assert.equal(pathOf("//attacker.example/dav/princ/you/"), "/dav/princ/you");
+  assert.equal(pathOf("https://attacker.example/dav/princ/you/"), "/dav/princ/you");
+  assert.equal(
+    new URL(`${pathOf("//attacker.example/x")}/`, "https://mail.example.com/dav/cal/you/").origin,
+    "https://mail.example.com",
+  );
+});
+
+test("a hostile principal cannot move the next request", () => {
+  const { principal } = calendarsIn(read("caldav-home-hostile-principal.xml"));
+  assert.equal(principal, "/dav/princ/you");
+  assert.ok(!principal.includes("attacker.example"));
 });
 
 test("an advertised default beats an address that says default", () => {

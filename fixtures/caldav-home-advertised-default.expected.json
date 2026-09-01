@@ -12,6 +12,7 @@
     }
   ],
   "advertised": "/dav/cal/you@example.com/work",
+  "principal": null,
   "default": {
     "path": "/dav/cal/you@example.com/work",
     "said": true

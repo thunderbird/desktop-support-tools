@@ -52,14 +52,27 @@ export function makeBody(name) {
 `;
 }
 
-/** A href as a bare path, however the server chose to write it. */
+/**
+ * A href as a bare path, however the server chose to write it.
+ *
+ * Three shapes arrive: a path, a full URL, and a network-path reference --
+ * //host/path, which is a host without a scheme. All three are reduced to the
+ * path, because a host named in a *reply* is not one to act on. Missing the
+ * third was a real hole: `//attacker.example/x` came back untouched, and
+ * resolving it against the calendar home produced somebody else's origin for
+ * the next request to be sent to, with the app password attached.
+ *
+ * The base is only there so a network-path reference can be parsed at all. It
+ * is thrown away with the rest of the authority, and it is an unresolvable name
+ * so that nothing can reach it even by accident.
+ */
 export function pathOf(href) {
   const raw = (href || "").trim();
   if (!raw) return "";
   let path = raw;
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) || raw.startsWith("//")) {
     try {
-      path = new URL(raw).pathname;
+      path = new URL(raw, "https://discarded.invalid/").pathname;
     } catch {
       path = raw;
     }

@@ -6,13 +6,13 @@
       "name": "Personal"
     },
     {
-      "href": "/dav/cal/you@example.com/ticket-7067/",
-      "path": "/dav/cal/you@example.com/ticket-7067",
-      "name": "ticket 7067"
+      "href": "https://attacker.example/dav/cal/you@example.com/theirs/",
+      "path": "/dav/cal/you@example.com/theirs",
+      "name": "A calendar somewhere else entirely"
     }
   ],
   "advertised": null,
-  "principal": null,
+  "principal": "/dav/princ/you",
   "default": {
     "path": null,
     "said": false

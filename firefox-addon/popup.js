@@ -63,8 +63,11 @@ if (api?.sidebarAction && !new URLSearchParams(location.search).has("in")) {
 let known = { home: null, calendars: [], default: { path: null, said: false } };
 
 // Whether this add-on may talk to the server the form names, asked for once per
-// click and awaited by every request that click makes.
+// click and awaited by every request that click makes, and which server that
+// was. The second half is the one that matters: a reply can name a host, and a
+// request must never follow it.
 let permitted = null;
+let permittedOrigin = null;
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -88,9 +91,10 @@ makeForm.addEventListener("submit", (event) => {
  */
 function askedFor() {
   try {
-    const origin = `${new URL(document.querySelector("#home").value.trim()).origin}/*`;
-    return api.permissions.request({ origins: [origin] });
+    permittedOrigin = new URL(document.querySelector("#home").value.trim()).origin;
+    return api.permissions.request({ origins: [`${permittedOrigin}/*`] });
   } catch {
+    permittedOrigin = null;
     // Not an address at all. Let credentials() say so in words, rather than
     // failing here as a permission problem, which it is not.
     return Promise.resolve(true);
@@ -239,6 +243,20 @@ function credentials() {
  * is a much bigger thing to install than one that can read your mail server.
  */
 async function dav(method, url, { user, password, body, depth }) {
+  // Every address after the first comes out of a reply, and a reply is the
+  // server talking. A server that answers with somebody else's host -- as a
+  // full URL, or as //host/path, which is a host with the scheme left off --
+  // would otherwise have the next request, and the app password on it, sent
+  // wherever it liked. pathOf() drops the host on the way in; this refuses to
+  // act on one that got past it anyway, which is the check worth having,
+  // because it is about where a request is going rather than how it was
+  // written.
+  if (permittedOrigin && new URL(url).origin !== permittedOrigin) {
+    throw new Error(
+      `The server answered with an address on ${new URL(url).host}, which is not the ` +
+        "server you asked about. Nothing was sent to it.",
+    );
+  }
   if (permitted && !(await permitted)) {
     throw new Error(
       `Without permission to talk to ${new URL(url).host}, this cannot ask it anything.`,

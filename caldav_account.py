@@ -67,7 +67,14 @@ UNNAMED = "(unnamed)"
 
 
 def _path_of(href: str) -> str:
-    """A href as a bare path, however the server chose to write it."""
+    """A href as a bare path, however the server chose to write it.
+
+    Three shapes arrive: a path, a full URL, and a network-path reference --
+    //host/path, which is a host without a scheme. urlsplit reduces all three to
+    the path, and that is load-bearing rather than incidental: a host named in a
+    *reply* is not one to act on, and the JavaScript twin had a hole here
+    exactly because it only recognised the second shape.
+    """
     return (urlsplit(href).path or href).rstrip("/")
 
 
@@ -170,6 +177,9 @@ class Connection:
 class Account(Connection):
     """An account's calendars, reached over the connection Connection opens."""
 
+    #: Where the last listing said the account's principal is, as a path.
+    principal: str | None = None
+
     def calendars(self) -> tuple[list[tuple[str, str]], str | None]:
         """Every calendar as its address and name, and which one the server calls default.
 
@@ -206,6 +216,11 @@ class Account(Connection):
                 continue
             name = (response.findtext(f".//{{{DAV}}}displayname") or "").strip()
             found.append((href, name or UNNAMED))
+
+        # Kept rather than returned, to leave calendars() a pair: every caller
+        # wants the calendars and the default, and only the tests and the
+        # add-on's twin care where the principal was.
+        self.principal = _path_of(principal) if principal else None
 
         if default is None and principal:
             default = self._default_from(principal)

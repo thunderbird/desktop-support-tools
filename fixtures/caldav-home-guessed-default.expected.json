@@ -17,6 +17,7 @@
     }
   ],
   "advertised": null,
+  "principal": "/dav/princ/you@example.com",
   "default": {
     "path": "/dav/cal/you@example.com/default",
     "said": false

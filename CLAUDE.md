@@ -391,6 +391,27 @@ stays alive, not because anything is stored.
 whatever you typed into the form. An add-on that can read every site is a much
 bigger thing to install than one that can read your mail server.
 
+**The JavaScript and the Python must stay in sync, and a security fix in one is
+a fix in both.** This is a rule, not an aspiration. `caldav_account.js` and
+`caldav_account.py` answer the same questions about an account, and the
+`fixtures/caldav-home-*.xml` companions exist to make a disagreement between
+them fail a test rather than surface as a wrong answer — or as a hole.
+
+It has already cost something. `_path_of` in Python reduces `//host/path` to
+`/path`, because `urlsplit` drops the authority; `pathOf` in JavaScript only
+recognised a *schemed* URL, so a server answering with
+`<current-user-principal><href>//attacker.example/x</href></...>` had that href
+survive, resolve against the calendar home into somebody else's origin, and
+receive the next request with the app password on it. Same intent, two
+implementations, one of them wrong, and no fixture covering the case.
+`fixtures/caldav-home-hostile-principal.xml` is that case now, asserted by both
+suites, and the add-on additionally refuses to send a request to any origin
+other than the one it asked permission for.
+
+So: when either half changes, change the other, and add the fixture that would
+have caught the difference. A twin that has drifted is worse than no twin,
+because the tests keep passing.
+
 **`caldav_account.js` reads the XML itself rather than using `DOMParser`.** Two
 reasons, and the first is the one that matters: the same code then runs under
 `node --test` and in the add-on, so the tests exercise what ships. The second is

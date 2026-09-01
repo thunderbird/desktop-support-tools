@@ -585,7 +585,24 @@ def test_pointing_at_one_calendar_says_so(monkeypatch, capsys) -> None:
 # Listing calendars
 
 
-HOMES = ["caldav-home-guessed-default", "caldav-home-advertised-default", "caldav-home-no-default"]
+HOMES = [
+    "caldav-home-guessed-default",
+    "caldav-home-advertised-default",
+    "caldav-home-no-default",
+    "caldav-home-hostile-principal",
+]
+
+
+def test_a_host_named_in_a_reply_is_dropped() -> None:
+    """//host/path is a host with the scheme left off, and acting on one sends
+    the next request -- and the app password on it -- wherever the server says.
+
+    The JavaScript twin only recognised the schemed form, which is how this
+    became a real hole there and not here. Asserted on both sides now.
+    """
+    assert _path_of("//attacker.example/dav/princ/you/") == "/dav/princ/you"
+    assert _path_of("https://attacker.example/dav/princ/you/") == "/dav/princ/you"
+    assert "attacker" not in _path_of("//attacker.example/x")
 
 
 @pytest.mark.parametrize("name", HOMES)
@@ -606,6 +623,7 @@ def test_a_calendar_home_parses_to_its_expected_companion(name) -> None:
         for href, displayed in calendars
     ] == expected["calendars"]
     assert advertised == expected["advertised"]
+    assert account.principal == expected["principal"]
 
     default, said = default_among(calendars, advertised)
     assert {"path": default, "said": said} == expected["default"]
