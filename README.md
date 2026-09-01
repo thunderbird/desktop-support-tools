@@ -468,8 +468,10 @@ Chrome's equivalent is a different manifest key, and Chrome is not the target
 yet.
 
 **What it asks for, and when.** No permissions at install. The first time it
-talks to a server, it asks for permission to talk to *that* server, because the
-address is whatever you typed. It is never given the run of the web.
+talks to a server, Firefox asks whether to let it talk to *that* server, because
+the address is whatever you typed. It is never given the run of the web.
+Confirmed working in Firefox on 2026-09-01: the prompt appears on the first
+click, and the answer is remembered until you revoke it in Add-ons Manager.
 
 **What it stores: nothing.** What you type lives in the popup and goes when the
 popup closes — no extension storage, no sync, no cookies on the request, nothing

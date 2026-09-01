@@ -409,9 +409,18 @@ directory.** `caldav_account.js` is shared, so it stays at the repo root and get
 copied into `build/` at packaging time rather than committed twice. Run it again
 after editing the shared file; `firefox-addon/` itself you edit in place.
 
-**Unverified:** the manifest says `strict_min_version` 128 and uses
-`optional_host_permissions`, both from documentation rather than from a Firefox
-that has run it. Loading it once from `about:debugging` settles both.
+**Verified in Firefox on 2026-09-01**, loaded from `about:debugging`: it asked
+for permission to talk to the server named in the form, and then worked. So
+`optional_host_permissions` plus `permissions.request()` on the click is the
+right shape in Firefox MV3, and asking outright rather than checking
+`permissions.contains()` first — which would spend the user gesture — is what
+makes the prompt appear at all.
+
+What that run does *not* settle is `strict_min_version: "128.0"`. It proves the
+Firefox it ran on is at least 128, not that 128 is the floor; that number is
+still from documentation, and the only thing that would pin it is running it on
+older builds. Harmless either way — too high a floor turns people away, it does
+not break anything.
 
 ## Asking which calendar is the default: `caldav_list_calendars.py`
 
