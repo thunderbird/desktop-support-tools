@@ -11,6 +11,14 @@
   <body>
     <h1>Your calendars</h1>
 
+    <p id="stay" hidden>
+      <button type="button" id="to-sidebar">Keep this open in the sidebar</button>
+      <span class="hint">
+        This popup closes whenever you click away, including when you switch tabs. The
+        sidebar stays open, and keeps what you have typed. Move over before you type.
+      </span>
+    </p>
+
     <form id="account" autocomplete="off">
       <label for="home">The address of your calendars</label>
       <input
@@ -70,10 +78,10 @@
 
     <footer>
       <p>
-        Nothing you type here is stored: it lives in this popup and goes when the popup
-        closes. Requests go straight from your browser to your own mail server, and
-        nowhere else. Your browser may still offer to save the password — that is your
-        browser, not this add-on.
+        Nothing you type here is stored: it is held only while this is open, and goes
+        when you close it. Requests go straight from your browser to your own mail
+        server, and nowhere else. Your browser may still offer to save the password —
+        that is your browser, not this add-on.
       </p>
     </footer>
 

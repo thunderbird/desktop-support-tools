@@ -36,6 +36,26 @@ const results = document.querySelector("#results");
 const status = document.querySelector("#status");
 const preview = document.querySelector("#preview");
 
+// A popup is closed by the browser the moment it loses focus, and there is no
+// setting that changes that -- so the answer is to be somewhere else. The
+// sidebar is the same document, and it survives switching tabs, which also
+// means it keeps what you have typed. Nothing is stored to achieve that: the
+// page simply stays alive, and closing the sidebar still takes it all with it.
+//
+// The offer is only shown in the popup, and only where there is a sidebar to
+// move to. Chrome's equivalent is a different manifest key and a different API,
+// and Chrome is not the target yet.
+const stay = document.querySelector("#stay");
+if (api?.sidebarAction && !new URLSearchParams(location.search).has("in")) {
+  stay.hidden = false;
+  document.querySelector("#to-sidebar").addEventListener("click", () => {
+    // Called on the click itself, like permissions.request(): Firefox opens a
+    // sidebar only in answer to a gesture.
+    const opening = api.sidebarAction.open();
+    Promise.resolve(opening).finally(() => window.close());
+  });
+}
+
 // What the last listing found, so making a calendar can refuse a name or an
 // address the account is already using -- the same check caldav_make_calendar.py
 // does, and the reason it lists before it makes.

@@ -459,6 +459,14 @@ headers, so a page — even one served from your own machine — never gets to m
 the request. An extension with a host permission is not subject to that. The ask
 to Thundermail is tracked separately; the add-on does not wait on it.
 
+**Keeping it open.** A popup is closed by the browser the moment it loses
+focus, switching tabs included, and no setting changes that. So the popup offers
+a button — **Keep this open in the sidebar** — which opens the same page in
+Firefox's sidebar, where it stays put and keeps what you have typed. Move over
+before you type, since nothing is carried across. The sidebar is Firefox's;
+Chrome's equivalent is a different manifest key, and Chrome is not the target
+yet.
+
 **What it asks for, and when.** No permissions at install. The first time it
 talks to a server, it asks for permission to talk to *that* server, because the
 address is whatever you typed. It is never given the run of the web.

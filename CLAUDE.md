@@ -377,6 +377,15 @@ extension with an event page and Chrome MV3 with a service worker; a popup is
 the same thing in both, so the difference never has to be handled. Firefox is
 the target and every feature works there first.
 
+**The sidebar is the answer to the popup closing**, which it does on any loss of
+focus, switching tabs included, with no setting to change it. `sidebar_action`
+points at the same `popup.html` with `?in=sidebar` on the end, so the page can
+tell which of the two it is and hide the offer when it is already there — one
+copy of the markup rather than two to keep in step. Nothing is carried across
+when you move: the sidebar starts empty, which is why the offer sits above the
+form rather than below it. The state survives switching tabs because the page
+stays alive, not because anything is stored.
+
 **The host permission is asked for at the moment it is needed**, through
 `optional_host_permissions` and `permissions.request()`, because the server is
 whatever you typed into the form. An add-on that can read every site is a much

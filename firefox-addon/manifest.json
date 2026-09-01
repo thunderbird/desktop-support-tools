@@ -27,5 +27,14 @@
     "https://*/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
-  ]
+  ],
+  "sidebar_action": {
+    "default_title": "Thundermail calendars",
+    "default_panel": "popup.html?in=sidebar",
+    "default_icon": {
+      "48": "icons/calendar.svg",
+      "96": "icons/calendar.svg"
+    },
+    "open_at_install": false
+  }
 }

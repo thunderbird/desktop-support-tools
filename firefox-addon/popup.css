@@ -9,7 +9,8 @@
 }
 
 body {
-  width: 26rem;
+  min-width: 23rem;
+  max-width: 34rem;
   margin: 0;
   padding: 0.9rem 1rem 0.6rem;
   font: message-box;
@@ -58,6 +59,24 @@ button {
 
 button:disabled {
   opacity: 0.5;
+}
+
+/* Moving to the sidebar is an offer, not the thing you came to do. */
+#stay {
+  margin: 0 0 0.7rem;
+}
+
+#to-sidebar {
+  margin: 0 0 0.2rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: inherit;
+  font-weight: 500;
+}
+
+#stay .hint {
+  display: block;
 }
 
 .hint,
