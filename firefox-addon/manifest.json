@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Thundermail calendars",
+  "version": "0.1.0",
+  "description": "List the calendars on your Thundermail account, see which one is the default, and make a new one. Nothing you type is saved.",
+  "author": "Thunderbird",
+  "homepage_url": "https://github.com/thunderbird/desktop-support-tools",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "thundermail-calendars@thunderbird.net",
+      "strict_min_version": "128.0"
+    }
+  },
+  "icons": {
+    "48": "icons/calendar.svg",
+    "96": "icons/calendar.svg"
+  },
+  "action": {
+    "default_title": "Thundermail calendars",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/calendar.svg",
+      "96": "icons/calendar.svg"
+    }
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ]
+}

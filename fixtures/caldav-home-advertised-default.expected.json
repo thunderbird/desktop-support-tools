@@ -1,0 +1,19 @@
+{
+  "calendars": [
+    {
+      "href": "https://mail.example.com/dav/cal/you@example.com/work/",
+      "path": "/dav/cal/you@example.com/work",
+      "name": "Work & everything else"
+    },
+    {
+      "href": "https://mail.example.com/dav/cal/you@example.com/default/",
+      "path": "/dav/cal/you@example.com/default",
+      "name": "Not the default, whatever the address says"
+    }
+  ],
+  "advertised": "/dav/cal/you@example.com/work",
+  "default": {
+    "path": "/dav/cal/you@example.com/work",
+    "said": true
+  }
+}

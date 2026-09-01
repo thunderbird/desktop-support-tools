@@ -57,6 +57,7 @@ pbpaste | uv run parse_troubleshooting.py                 # parse a real paste
 uv run anonymize_ics.py Calendar.ics -o scrubbed.ics      # scrub a calendar
 uv run anonymize_ics.py --check scrubbed.ics              # audit a scrubbed one
 uv run caldav_list_calendars.py "$CAL_HOME"               # names the default calendar
+uv run package_addon.py                                   # build/ the Firefox add-on
 uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"  # a calendar to test in
 uv run caldav_import_ics.py "$CAL" scrubbed.ics           # dry run; --upload sends it
 uv run caldav_delete_events.py "$CAL" --everything        # dry run; --delete empties it
@@ -310,9 +311,14 @@ preference.
 **No JavaScript twin, and that is not an oversight.** "The parser exists twice"
 applies to the tools behind the web page, which exist so somebody can paste
 something and get an answer. This one is a step support staff run over a file
-before attaching it to a bug; it never had a page to be half of. The same goes
-for the five CalDAV tools: a browser cannot send `MKCALENDAR` or a cross-origin
-`PUT` to somebody's mail server, and it should not be asked to.
+before attaching it to a bug; it never had a page to be half of.
+
+That was true of all five CalDAV tools until the add-on, and it is worth being
+exact about what changed. A *page* still cannot do any of this — see below — but
+a browser **extension** is not subject to CORS, so `caldav_account.js` is now a
+real second implementation of the account listing and the default-calendar rule,
+and `fixtures/caldav-home-*.xml` are the contract that holds it to the Python.
+Everything else stays CLI-only: nothing sends `PUT` or `DELETE` from a browser.
 
 ## Sending a calendar back up: `caldav_import_ics.py`
 
@@ -356,6 +362,47 @@ production, where a `DELETE` afterwards reaches neither the backups, nor the
 logs, nor the other clients on that account. This is the one rule in the tool that
 is a policy decision rather than a protocol one, so it is enforced in code rather
 than written in the docs.
+
+## The Firefox add-on
+
+**A page cannot do this and an extension can**, and the difference is CORS.
+Thundermail's CalDAV answers a preflight with `200` and no
+`Access-Control-Allow-*` header at all (checked 2026-09-01), so `fetch()` from
+any origin that is not `mail.thundermail.com` never gets to send the request.
+An extension with a host permission is not subject to that. Issue #20 is the ask
+to Thundermail; the add-on does not wait on it.
+
+**It is all popup, and there is no background script.** Firefox MV3 backs an
+extension with an event page and Chrome MV3 with a service worker; a popup is
+the same thing in both, so the difference never has to be handled. Firefox is
+the target and every feature works there first.
+
+**The host permission is asked for at the moment it is needed**, through
+`optional_host_permissions` and `permissions.request()`, because the server is
+whatever you typed into the form. An add-on that can read every site is a much
+bigger thing to install than one that can read your mail server.
+
+**`caldav_account.js` reads the XML itself rather than using `DOMParser`.** Two
+reasons, and the first is the one that matters: the same code then runs under
+`node --test` and in the add-on, so the tests exercise what ships. The second is
+that a server's XML never touches a DOM API at all, which is a stronger version
+of the rule that it must never be assigned into the live document.
+
+**Nothing is stored.** No `storage.local`, no `storage.sync` — an app password on
+Mozilla's sync servers is the opposite of what an app password is for — no
+cookies (`credentials: "omit"`), and nothing in a URL. What you type lives in the
+popup and goes when the popup closes. The UI says so, and says the other true
+thing too: your browser may still offer to save the password, and that is your
+browser rather than the add-on.
+
+**`package_addon.py` exists because an extension can only load files from its own
+directory.** `caldav_account.js` is shared, so it stays at the repo root and gets
+copied into `build/` at packaging time rather than committed twice. Run it again
+after editing the shared file; `firefox-addon/` itself you edit in place.
+
+**Unverified:** the manifest says `strict_min_version` 128 and uses
+`optional_host_permissions`, both from documentation rather than from a Firefox
+that has run it. Loading it once from `about:debugging` settles both.
 
 ## Asking which calendar is the default: `caldav_list_calendars.py`
 
@@ -545,11 +592,16 @@ caldav_make_calendar.py     CLI: make a calendar to test in, which Thunderbird c
 caldav_import_ics.py        CLI: calendar file -> one entry per request on a server
 caldav_delete_events.py     CLI: take a scrubbed import back off a server
 caldav_delete_calendars.py  CLI: delete the test calendars, keeping the default
+caldav_account.js           the account listing again, for the add-on
+package_addon.py            assemble firefox-addon/ + the shared module into build/
+firefox-addon/              the add-on: manifest, popup, and nothing else
 troubleshooting_info.js     the parser again, for the browser
 verdicts.js                 the engine again, for the browser
 index.html, app.js, style.css   the webapp; app.js only reads the textarea
 fixtures/                   golden fixtures, plus two companions each
-                            (ics-*.ics have one: .expected.ics)
+                            (ics-*.ics have one: .expected.ics;
+                            caldav-home-*.xml have one: .expected.json,
+                            asserted by BOTH caldav_account.py and .js)
 tests/                      pytest suite and node:test suite, same fixtures
 package.json                no dependencies; "type": "module" and a test script
 ```

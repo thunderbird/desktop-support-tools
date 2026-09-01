@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic: a server that answers schedule-default-calendar-URL, which is
+     what the specification expects and what Thundermail does not do. Written
+     with a default xmlns and a different CalDAV prefix on purpose, since the prefix
+     is the server's choice, and a parser that keys on "D:href" works until the
+     day one changes it. The hrefs are absolute here, which servers are also
+     free to do. -->
+<multistatus xmlns="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
+  <response>
+    <href>https://mail.example.com/dav/cal/you@example.com/</href>
+    <propstat>
+      <prop>
+        <resourcetype><collection/></resourcetype>
+        <cal:schedule-default-calendar-URL>
+          <href>https://mail.example.com/dav/cal/you@example.com/work/</href>
+        </cal:schedule-default-calendar-URL>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>https://mail.example.com/dav/cal/you@example.com/work/</href>
+    <propstat>
+      <prop>
+        <resourcetype><collection/><cal:calendar/></resourcetype>
+        <displayname>Work &amp; everything else</displayname>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>https://mail.example.com/dav/cal/you@example.com/default/</href>
+    <propstat>
+      <prop>
+        <resourcetype><collection/><cal:calendar/></resourcetype>
+        <displayname>Not the default, whatever the address says</displayname>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>

@@ -1,0 +1,19 @@
+{
+  "calendars": [
+    {
+      "href": "/dav/cal/you@example.com/personal/",
+      "path": "/dav/cal/you@example.com/personal",
+      "name": "Personal"
+    },
+    {
+      "href": "/dav/cal/you@example.com/ticket-7067/",
+      "path": "/dav/cal/you@example.com/ticket-7067",
+      "name": "ticket 7067"
+    }
+  ],
+  "advertised": null,
+  "default": {
+    "path": null,
+    "said": false
+  }
+}

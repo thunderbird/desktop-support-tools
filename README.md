@@ -433,6 +433,46 @@ uv run caldav_delete_events.py "${CAL_HOME}default/" --everything
 Afterwards, remove the calendar from Thunderbird too. It keeps its own cached
 copy and will happily go on showing a calendar the server no longer has.
 
+## The Firefox add-on
+
+The same two safe operations — list your calendars, make a new one — from a
+button in Firefox, for when a command line is the thing in the way.
+
+```sh
+uv run package_addon.py          # assembles build/firefox-addon/
+uv run package_addon.py --zip    # ... and the archive you upload for signing
+```
+
+Then in Firefox: **about:debugging** → **This Firefox** → **Load Temporary
+Add-on**, and pick `build/firefox-addon/manifest.json`. It is there until
+Firefox restarts. Anything more permanent has to be signed, because release
+Firefox will not install an unsigned extension.
+
+The build step exists for one reason: an extension can only load files from
+inside its own directory, and `caldav_account.js` is shared with the tests and
+with `caldav_account.py`'s fixtures. Rather than keep two copies of it, the
+packaging copies it in. Edit `firefox-addon/` in place; run the script again
+after editing the shared file.
+
+**Why an add-on and not a web page.** Thundermail's CalDAV sends no CORS
+headers, so a page — even one served from your own machine — never gets to make
+the request. An extension with a host permission is not subject to that. The ask
+to Thundermail is tracked separately; the add-on does not wait on it.
+
+**What it asks for, and when.** No permissions at install. The first time it
+talks to a server, it asks for permission to talk to *that* server, because the
+address is whatever you typed. It is never given the run of the web.
+
+**What it stores: nothing.** What you type lives in the popup and goes when the
+popup closes — no extension storage, no sync, no cookies on the request, nothing
+in a URL. Requests go from your browser straight to your own mail server. Your
+browser may still offer to save the password, which is your browser rather than
+this add-on, and the popup says so.
+
+It sends `PROPFIND` and `MKCALENDAR` and nothing else. Deleting a calendar is
+not in it, on purpose: that is the operation with no undo, and it wants a
+confirmation flow designed rather than a button added.
+
 ### On Windows, without WSL
 
 `curl.exe` is part of Windows 10 1803 and later, and Windows 11, so the requests

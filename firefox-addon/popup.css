@@ -1,0 +1,135 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+   License, v. 2.0. If a copy of the MPL was not distributed with this
+   file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+:root {
+  color-scheme: light dark;
+  --edge: color-mix(in srgb, currentColor 25%, transparent);
+  --quiet: color-mix(in srgb, currentColor 65%, transparent);
+}
+
+body {
+  width: 26rem;
+  margin: 0;
+  padding: 0.9rem 1rem 0.6rem;
+  font: message-box;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+h1 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+h2 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+label {
+  display: block;
+  margin-top: 0.55rem;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  font: inherit;
+  background: Field;
+  color: FieldText;
+}
+
+button {
+  margin-top: 0.8rem;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 600;
+  background: AccentColor;
+  color: AccentColorText;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+.hint,
+.note,
+footer {
+  margin: 0.3rem 0 0;
+  color: var(--quiet);
+  font-size: 0.78rem;
+}
+
+footer {
+  margin-top: 0.9rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--edge);
+}
+
+code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+#calendars {
+  margin: 0.4rem 0 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+
+#calendars li {
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--edge);
+}
+
+#calendars li.default .name {
+  font-weight: 700;
+}
+
+#calendars .name {
+  overflow-wrap: anywhere;
+}
+
+#calendars code {
+  display: block;
+  color: var(--quiet);
+}
+
+.chip {
+  display: inline-block;
+  margin-left: 0.4rem;
+  white-space: nowrap;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: 0.05rem;
+}
+
+#status {
+  margin: 0.7rem 0 0;
+  font-size: 0.8rem;
+}
+
+#status.bad {
+  color: color-mix(in srgb, #d70022 70%, currentColor);
+}
+
+#status.good {
+  color: color-mix(in srgb, #058b00 70%, currentColor);
+}
+
+#status:empty {
+  margin: 0;
+}

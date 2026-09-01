@@ -6,3 +6,6 @@ __pycache__/
 # Calendars scrubbed from real tickets are worked on here but never live here.
 # fixtures/*.ics are hand-written and synthetic, so they stay tracked.
 /*.ics
+
+# The add-on is assembled by package_addon.py; the sources are firefox-addon/.
+/build/

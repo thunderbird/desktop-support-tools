@@ -1,0 +1,24 @@
+{
+  "calendars": [
+    {
+      "href": "/dav/cal/you@example.com/default/",
+      "path": "/dav/cal/you@example.com/default",
+      "name": "Your Thundermail Calendar (you@example.com)"
+    },
+    {
+      "href": "/dav/cal/you@example.com/ticket-7067/",
+      "path": "/dav/cal/you@example.com/ticket-7067",
+      "name": "ticket 7067"
+    },
+    {
+      "href": "/dav/cal/you@example.com/6e37a1/",
+      "path": "/dav/cal/you@example.com/6e37a1",
+      "name": "(unnamed)"
+    }
+  ],
+  "advertised": null,
+  "default": {
+    "path": "/dav/cal/you@example.com/default",
+    "said": false
+  }
+}

@@ -18,6 +18,7 @@ Those are the assertions worth having.
 
 from __future__ import annotations
 
+import json
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -32,7 +33,7 @@ import caldav_delete_events as events_tool  # noqa: E402
 import caldav_import_ics as import_tool  # noqa: E402
 import caldav_list_calendars as list_tool  # noqa: E402
 import caldav_make_calendar as make_tool  # noqa: E402
-from caldav_account import Account  # noqa: E402
+from caldav_account import Account, _path_of, default_among  # noqa: E402
 from caldav_delete_calendars import Deleter  # noqa: E402
 from caldav_make_calendar import Maker, address_for  # noqa: E402
 from caldav_import_ics import (  # noqa: E402
@@ -582,6 +583,34 @@ def test_pointing_at_one_calendar_says_so(monkeypatch, capsys) -> None:
 
 # --------------------------------------------------------------------------
 # Listing calendars
+
+
+HOMES = ["caldav-home-guessed-default", "caldav-home-advertised-default", "caldav-home-no-default"]
+
+
+@pytest.mark.parametrize("name", HOMES)
+def test_a_calendar_home_parses_to_its_expected_companion(name) -> None:
+    """The other half of tests/caldav_account.test.js, on the same three files.
+
+    Two implementations read a multistatus reply -- this one and the add-on's --
+    and the .expected.json companions are the only thing stopping them from
+    quietly disagreeing about which calendar is your default.
+    """
+    expected = json.loads(read(FIXTURES / f"{name}.expected.json"))
+    account = Account("https://host/dav/cal/you@example.com/", "u", "p")
+    talking(account, lambda *_: (207, read(FIXTURES / f"{name}.xml").encode()))
+
+    calendars, advertised = account.calendars()
+    assert [
+        {"href": href, "path": _path_of(href), "name": displayed}
+        for href, displayed in calendars
+    ] == expected["calendars"]
+    assert advertised == expected["advertised"]
+
+    default, said = default_among(calendars, advertised)
+    assert {"path": default, "said": said} == expected["default"]
+
+
 
 
 ADVERTISED = multistatus(

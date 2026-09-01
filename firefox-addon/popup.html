@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Thundermail calendars</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1>Your calendars</h1>
+
+    <form id="account" autocomplete="off">
+      <label for="home">The address of your calendars</label>
+      <input
+        type="url"
+        id="home"
+        name="home"
+        placeholder="https://mail.thundermail.com/dav/cal/you%40thundermail.com/"
+        autocomplete="off"
+        spellcheck="false"
+        required
+      />
+      <p class="hint">
+        In Thunderbird, right-click a calendar, choose <b>Properties</b>, and copy
+        <b>Location</b> — then take the last part off, so it ends after your address.
+        An <code>@</code> is written <code>%40</code>.
+      </p>
+
+      <label for="user">Username</label>
+      <input type="text" id="user" name="user" autocomplete="off" spellcheck="false" required />
+
+      <label for="password">App password</label>
+      <input type="password" id="password" name="password" autocomplete="off" required />
+      <p class="hint">
+        An app password from your provider's settings, not the password you type into
+        Thunderbird — this signs in with HTTP Basic, which cannot do OAuth2.
+      </p>
+
+      <button type="submit" id="list">List my calendars</button>
+    </form>
+
+    <section id="results" hidden>
+      <h2 id="summary"></h2>
+      <ul id="calendars"></ul>
+      <p class="note" id="how-default"></p>
+      <p class="note" id="name-warning" hidden></p>
+
+      <form id="make" autocomplete="off">
+        <h2>Make another one</h2>
+        <label for="name">What to call it</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          placeholder="ticket 7067"
+          autocomplete="off"
+          required
+        />
+        <p class="hint">
+          Name it after the ticket or bug it is for. Its address is worked out from the
+          name: <code id="preview">…</code>
+        </p>
+        <button type="submit" id="create">Make it</button>
+      </form>
+    </section>
+
+    <p id="status" role="status" aria-live="polite"></p>
+
+    <footer>
+      <p>
+        Nothing you type here is stored: it lives in this popup and goes when the popup
+        closes. Requests go straight from your browser to your own mail server, and
+        nowhere else. Your browser may still offer to save the password — that is your
+        browser, not this add-on.
+      </p>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
