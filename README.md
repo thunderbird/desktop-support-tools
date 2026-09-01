@@ -462,9 +462,21 @@ uv run package_addon.py --zip    # ... and the archive you upload for signing
 
 Then in Firefox — **ESR 140.15 or newer** — **about:debugging** → **This
 Firefox** → **Load Temporary Add-on**, and pick
-`build/firefox-addon/manifest.json`. It is there until
-Firefox restarts. Anything more permanent has to be signed, because release
-Firefox will not install an unsigned extension.
+`build/firefox-addon/manifest.json`. It is there until Firefox restarts.
+Anything more permanent has to be signed, because release Firefox will not
+install an unsigned extension.
+
+**It is not on AMO, and that is the decision rather than the backlog.** This
+goes to staff and volunteers as a signed XPI, distributed by hand. Listing it
+would mean taking on a support burden and release integrity — for an add-on
+whose whole job is handling app passwords — to close a gap that Thunderbird
+itself should close: the client cannot create CalDAV calendars, and that is the
+actual bug. When it can, most of this add-on stops being needed. A signed XPI
+for a few people costs almost nothing and can be thrown away that day.
+
+If a public build is ever wanted, it comes out of the same sources rather than a
+fork: `package_addon.py` assembles the build already, so a variant is a manifest
+difference and a hidden section, not a second copy to keep in step.
 
 The build step exists for one reason: an extension can only load files from
 inside its own directory, and `caldav_account.js` is shared with the tests and

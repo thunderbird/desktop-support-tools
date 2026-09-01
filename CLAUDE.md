@@ -413,6 +413,35 @@ So: when either half changes, change the other, and add the fixture that would
 have caught the difference. A twin that has drifted is worse than no twin,
 because the tests keep passing.
 
+**Staff and volunteers only, by signed XPI, not listed on AMO.** Decided
+2026-09-01. Not because the add-on is dangerous — it sends `PROPFIND` and
+`MKCALENDAR` and nothing else — but because listing it buys a support burden and
+a release-integrity obligation for something Thunderbird core should absorb: a
+client that cannot create a CalDAV calendar is the real bug, and it is filed
+(#14, and #15 for Thundermail having no UI for it either).
+
+Two things follow, and both are about not building what is not needed yet:
+
+- **`DELETE` stays out of the add-on**, and is #23. Creating cannot overwrite —
+  the server answers 405 — and is undone by deleting; deleting is undone by
+  nothing. That is the line, rather than "destructive", which puts creating on
+  the wrong side of it.
+- **A read-only public build is not a fork.** If one is ever wanted, it comes out
+  of `package_addon.py` as a variant of the same sources. Two directories would
+  drift, and the last time these tools drifted it was a security hole.
+- **A public build never carries an irreversible operation.** Standing rule, set
+  2026-09-01. Listing, and creating something that can be deleted again, are the
+  most a build handed to people we cannot reach may do. Deleting a calendar
+  takes its contents with it and nothing in this stack can bring them back, so it
+  stays where the person running it can be asked what they meant. This is a
+  decision, not a law of nature: reviewers may overrule it, and if they do, that
+  belongs in this file with their reasoning rather than as a quiet change to the
+  packaging script.
+
+Note that "staff only" is a distribution choice and not a control: a signed XPI
+can be copied. Anything that genuinely must be restricted belongs in the
+server's permissions.
+
 **The privacy claim is written down where it can be checked.**
 `firefox-addon/privacy.html`, and the PDF printed from it, cite a line of code
 for every claim and name the commit those line numbers belong to, because a
