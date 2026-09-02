@@ -33,8 +33,10 @@ import caldav_delete_events as events_tool  # noqa: E402
 import caldav_import_ics as import_tool  # noqa: E402
 import caldav_list_calendars as list_tool  # noqa: E402
 import caldav_make_calendar as make_tool  # noqa: E402
+import caldav_rename_calendar as rename_tool  # noqa: E402
 from caldav_account import Account, _path_of, default_among  # noqa: E402
 from caldav_delete_calendars import Deleter  # noqa: E402
+from caldav_rename_calendar import Renamer  # noqa: E402
 from caldav_make_calendar import Maker, address_for  # noqa: E402
 from caldav_import_ics import (  # noqa: E402
     Importer,
@@ -58,6 +60,7 @@ SIGNS_IN = {
     events_tool: "Calendar",
     calendars_tool: "Deleter",
     list_tool: "Account",
+    rename_tool: "Renamer",
     make_tool: "Maker",
     import_tool: "Importer",
 }
@@ -729,6 +732,169 @@ def test_a_default_with_no_name_still_prints_something(monkeypatch, capsys) -> N
     printed = capsys.readouterr()
     assert printed.out.strip() == "(unnamed)"
     assert "no name of its own" in printed.err
+
+
+# --------------------------------------------------------------------------
+# Renaming a calendar
+
+
+RENAMED = (
+    b'<?xml version="1.0" encoding="UTF-8"?><D:multistatus xmlns:D="DAV:"><D:response>'
+    b"<D:href>/dav/cal/you/ticket-7067/</D:href><D:propstat><D:prop><D:displayname/></D:prop>"
+    b"<D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"
+)
+REFUSED = RENAMED.replace(b"200 OK", b"403 Forbidden")
+
+
+def renaming(argv, monkeypatch, reply=None):
+    """Run the rename tool against a server that answers reply."""
+    account = Renamer("https://host/dav/cal/you/", "u", "p")
+    sent: list[tuple[str, str, str]] = []
+
+    def answer(method, path, body):
+        sent.append((method, path, body))
+        if method == "PROPPATCH":
+            return (207, RENAMED if reply is None else reply)
+        return (207, HOME)
+
+    talking(account, answer)
+    code = run(rename_tool, argv, monkeypatch, account)
+    return code, sent
+
+
+def test_a_dry_run_renames_nothing(monkeypatch, capsys) -> None:
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067", "--to", "Calendar"],
+        monkeypatch,
+    )
+    assert code == 0
+    assert [method for method, _, _ in sent] == ["PROPFIND"]
+    printed = capsys.readouterr().out
+    assert "'ticket 7067'" in printed, "the old name is printed before anything is sent"
+    assert "dry run" in printed
+
+
+def test_renaming_sends_the_new_name_to_the_right_calendar(monkeypatch, capsys) -> None:
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067",
+         "--to", "Budget & forecast", "--rename"],
+        monkeypatch,
+    )
+    assert code == 0
+    patches = [(path, body) for method, path, body in sent if method == "PROPPATCH"]
+    assert len(patches) == 1
+    path, body = patches[0]
+    assert path == "/dav/cal/you/ticket-7067/"
+    assert "<D:displayname>Budget &amp; forecast</D:displayname>" in body
+    printed = capsys.readouterr().out
+    assert "was 'ticket 7067'" in printed, "the old name is printed again afterwards"
+
+
+def test_the_address_picks_the_calendar_too(monkeypatch) -> None:
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket-7067",
+         "--to", "Calendar", "--rename"],
+        monkeypatch,
+    )
+    assert code == 0
+    assert [path for method, path, _ in sent if method == "PROPPATCH"] == [
+        "/dav/cal/you/ticket-7067/"
+    ]
+
+
+def test_a_207_that_refuses_the_property_is_not_a_rename(monkeypatch, capsys) -> None:
+    """A server may answer multi-status and then refuse the property inside it.
+
+    Reading only the outer code would report that refusal as a success, which is
+    the worst possible outcome: the name nobody wrote down is gone from the
+    screen and never left the server.
+    """
+    code, _ = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067",
+         "--to", "Calendar", "--rename"],
+        monkeypatch,
+        reply=REFUSED,
+    )
+    assert code == 1
+    assert "403" in capsys.readouterr().err
+
+
+def test_a_name_already_in_use_is_refused(monkeypatch, capsys) -> None:
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067",
+         "--to", "my 3rd calendar", "--rename"],
+        monkeypatch,
+    )
+    assert code == 1
+    assert not [method for method, _, _ in sent if method == "PROPPATCH"]
+    assert "indistinguishable" in capsys.readouterr().out
+
+
+def test_renaming_a_calendar_to_its_own_name_does_nothing(monkeypatch, capsys) -> None:
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067",
+         "--to", "ticket 7067", "--rename"],
+        monkeypatch,
+    )
+    assert code == 0
+    assert not [method for method, _, _ in sent if method == "PROPPATCH"]
+    assert "already called" in capsys.readouterr().out
+
+
+def test_a_name_that_matches_nothing_renames_nothing(monkeypatch, capsys) -> None:
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7607",
+         "--to", "Calendar", "--rename"],
+        monkeypatch,
+    )
+    assert code == 1
+    assert not [method for method, _, _ in sent if method == "PROPPATCH"]
+    printed = capsys.readouterr().out
+    assert "Nothing here is called 'ticket 7607'" in printed
+    assert "ticket 7067" in printed, "it lists what there was to choose from"
+
+
+def test_the_default_calendar_can_be_renamed(monkeypatch) -> None:
+    """It cannot be deleted, and that has nothing to do with renaming it.
+
+    Shortening the name Thundermail generated for it is the entire reason this
+    tool exists, so a guard against touching the default would defeat the point.
+    """
+    code, sent = renaming(
+        ["https://host/dav/cal/you/", "-u", "u", "--only", "Personal",
+         "--to", "Calendar", "--rename"],
+        monkeypatch,
+    )
+    assert code == 0
+    assert [path for method, path, _ in sent if method == "PROPPATCH"] == ["/dav/cal/you/default/"]
+
+
+def test_a_new_name_of_nothing_is_refused(monkeypatch, capsys) -> None:
+    account = Renamer("https://host/dav/cal/you/", "u", "p")
+    talking(account, lambda *_: (207, HOME))
+    code = run(rename_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067", "--to", "  "],
+               monkeypatch, account)
+    assert code == 1
+    assert "needs a name" in capsys.readouterr().err
+
+
+def test_declining_renames_nothing(monkeypatch, capsys) -> None:
+    account = Renamer("https://host/dav/cal/you/", "u", "p")
+    sent: list[str] = []
+
+    def answer(method, path, body):
+        sent.append(method)
+        return (207, RENAMED if method == "PROPPATCH" else HOME)
+
+    talking(account, answer)
+    code = run(rename_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "ticket 7067",
+                "--to", "Calendar", "--rename", "--confirm"],
+               monkeypatch, account, answer="n")
+    assert code == 1
+    assert "PROPPATCH" not in sent
+    assert "Nothing renamed" in capsys.readouterr().out
 
 
 # --------------------------------------------------------------------------

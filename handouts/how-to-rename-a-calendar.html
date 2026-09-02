@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Shortening your Thundermail calendar name</title>
+    <style>
+      @page { size: letter; margin: 16mm 16mm 14mm; }
+      :root { --ink: #16161a; --quiet: #5c5c66; --rule: #d8d8de; --code: #f4f4f6; --warn: #8f4700; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; color: var(--ink); font-size: 10pt; line-height: 1.5;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+      h1 { margin: 0 0 0.15rem; font-size: 18pt; line-height: 1.2; letter-spacing: -0.01em; }
+      .sub { margin: 0 0 0.9rem; padding-bottom: 0.7rem; border-bottom: 2px solid var(--ink); color: var(--quiet); font-size: 10.5pt; }
+      h2 { margin: 1.1rem 0 0.4rem; font-size: 11.5pt; break-after: avoid; }
+      h2 .n { display: inline-block; width: 1.3rem; color: var(--quiet); font-weight: 400; }
+      p { margin: 0 0 0.55rem; }
+      code { font-family: "SF Mono", Menlo, ui-monospace, monospace; font-size: 8.7pt; background: var(--code); padding: 0.05rem 0.25rem; border-radius: 2px; }
+      pre {
+        margin: 0 0 0.6rem; padding: 0.55rem 0.7rem; background: var(--code);
+        border-left: 3px solid var(--rule); font-family: "SF Mono", Menlo, ui-monospace, monospace;
+        font-size: 8.4pt; line-height: 1.45; white-space: pre-wrap; break-inside: avoid;
+      }
+      ul { margin: 0 0 0.55rem; padding-left: 1.1rem; }
+      li { margin-bottom: 0.2rem; }
+      .lede { padding: 0.6rem 0.8rem; background: var(--code); border-radius: 3px; margin-bottom: 0.9rem; }
+      .lede p:last-child { margin-bottom: 0; }
+      .warn { border-left: 3px solid var(--warn); padding: 0.5rem 0.75rem; margin: 0 0 0.6rem; }
+      .warn b { color: var(--warn); }
+      footer { margin-top: 1.1rem; padding-top: 0.5rem; border-top: 1px solid var(--rule); color: var(--quiet); font-size: 8.3pt; }
+    </style>
+  </head>
+  <body>
+    <h1>Shortening your Thundermail calendar name</h1>
+    <p class="sub">Your calendar is called something long with your email address in it. Here is how to change that.</p>
+
+    <div class="lede">
+      <p>
+        Thundermail names your calendar after your account, so it arrives as something like
+        <code>Nemo Thundermail Calendar (nemo@thundermail.com)</code>. That is long enough to be cut
+        off in Thunderbird's calendar list, and it puts your email address on your screen and in any
+        screenshot you take.
+      </p>
+      <p>
+        Neither Thunderbird nor the Thundermail website can change it today. The mail server itself
+        is perfectly happy to, and this is a small script that asks it to. <b>You will need a
+        terminal.</b>
+      </p>
+    </div>
+
+    <h2><span class="n">1</span> What you need</h2>
+    <ul>
+      <li>
+        <b>An app password</b>, made in your Thundermail settings — not the password you type into
+        Thunderbird. This talks to the server the old-fashioned way, which cannot use the sign-in
+        Thunderbird normally does.
+      </li>
+      <li>
+        <b>The address of your calendars.</b> In Thunderbird, right-click your calendar, choose
+        <b>Properties</b>, and copy <b>Location</b>. Then delete the last part, so it ends just after
+        your address. An <code>@</code> is written <code>%40</code>.
+      </li>
+      <li>
+        <b>The tools</b>: <code>git clone https://github.com/thunderbird/desktop-support-tools</code>,
+        and <a href="https://docs.astral.sh/uv/">uv</a>, which runs them.
+      </li>
+    </ul>
+
+    <h2><span class="n">2</span> See what you have</h2>
+    <pre>export CALDAV_USER='you@thundermail.com'
+CAL_HOME='https://mail.thundermail.com/dav/cal/you%40thundermail.com/'
+
+uv run caldav_list_calendars.py "$CAL_HOME" --all</pre>
+    <p>
+      It asks for your app password, then lists your calendars and marks the default one. Copy the
+      long name it prints — you are about to replace it, and <b>nothing anywhere remembers it for
+      you</b>.
+    </p>
+
+    <h2><span class="n">3</span> Try the rename without doing it</h2>
+    <pre>uv run caldav_rename_calendar.py "$CAL_HOME" --only default --to "Calendar"</pre>
+    <p>
+      This changes nothing. It finds the calendar, prints the name it has and the name it would
+      have, and stops. <code>--only</code> takes either the name shown in Thunderbird or the last
+      part of the address, which is why <code>default</code> is enough here.
+    </p>
+
+    <h2><span class="n">4</span> Do it</h2>
+    <pre>uv run caldav_rename_calendar.py "$CAL_HOME" --only default --to "Calendar" --rename</pre>
+    <p>
+      Add <code>--confirm</code> if you would rather be asked first. Check the result with the
+      listing command from step 2.
+    </p>
+
+    <h2><span class="n">5</span> Putting it back</h2>
+    <pre>uv run caldav_rename_calendar.py "$CAL_HOME" --only default \
+    --to "Nemo Thundermail Calendar (nemo@thundermail.com)" --rename</pre>
+    <p>
+      The same command with the old name — which is why step 2 asked you to copy it.
+    </p>
+
+    <h2>What to expect afterwards</h2>
+    <ul>
+      <li>
+        <b>Nothing needs re-adding.</b> Renaming does not move the calendar: its address is
+        unchanged, so every device already subscribed to it stays subscribed, and your events are
+        untouched.
+      </li>
+      <li>
+        <b>Thunderbird may keep showing the old name</b> for a while, from its own copy. That is
+        Thunderbird, not the server; the listing command asks the server directly, so it is the one
+        to trust.
+      </li>
+      <li>
+        <b>Thunderbird has a rename of its own</b>, in the same Properties dialog. Whether that
+        changes the name on the server or only your copy of it is still being checked. If you only
+        want a shorter label in your own client, it is worth trying first — it needs no terminal.
+      </li>
+    </ul>
+
+    <div class="warn">
+      <p>
+        <b>One caution.</b> This is the only supported way to change the name right now, and it is
+        also the reason the script asks you nothing by default: it prints what it would do and stops.
+        Run it without <code>--rename</code> first, every time. A calendar you rename by mistake is
+        put right by renaming it again — but only if you still know what it was called.
+      </p>
+    </div>
+
+    <h2>If something goes wrong</h2>
+    <ul>
+      <li>
+        <b>"The server would not accept that username and password"</b> — almost always an account
+        password where an app password is needed. Make one in your Thundermail settings.
+      </li>
+      <li>
+        <b>"No calendars under …"</b> — the address is one calendar rather than all of them. Take the
+        last part off it.
+      </li>
+      <li>
+        <b>"This account already has a calendar called …"</b> — two calendars with one name cannot be
+        told apart in Thunderbird's list, so the script refuses. Pick another name.
+      </li>
+      <li>
+        <b>"Nothing here is called …"</b> — it lists what there is instead; copy one of those names,
+        or use the last part of the address.
+      </li>
+    </ul>
+
+    <footer>
+      thunderbird/desktop-support-tools · <code>caldav_rename_calendar.py</code> · MPL-2.0 ·
+      2 September 2026. Questions and problems: open an issue on the repository.
+    </footer>
+  </body>
+</html>

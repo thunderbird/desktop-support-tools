@@ -58,6 +58,7 @@ uv run anonymize_ics.py Calendar.ics -o scrubbed.ics      # scrub a calendar
 uv run anonymize_ics.py --check scrubbed.ics              # audit a scrubbed one
 uv run caldav_list_calendars.py "$CAL_HOME"               # names the default calendar
 uv run package_addon.py                                   # build/ the Firefox add-on
+uv run caldav_rename_calendar.py "$CAL_HOME" --only default --to Calendar
 uv run caldav_make_calendar.py "$CAL_HOME" "ticket 7067"  # a calendar to test in
 uv run caldav_import_ics.py "$CAL" scrubbed.ics           # dry run; --upload sends it
 uv run caldav_delete_events.py "$CAL" --everything        # dry run; --delete empties it
@@ -560,6 +561,45 @@ changed something; a read-only tool would have had to import `DELETE` to ask a
 question. `Connection` is the transport, `Account` is the calendars on it, and
 the verbs are subclasses: `Deleter`, `Maker`, `Importer`.
 
+## Renaming a calendar: `caldav_rename_calendar.py`
+
+**Written because subscribers complained, not to complete a set.** Thundermail
+generates the default calendar's name from the account, which makes it long
+enough to truncate in Thunderbird's list and puts an email address in it (#18,
+#25). Neither client nor web UI renames a calendar; the server does, and that
+asymmetry is the whole reason this exists.
+
+**`PROPPATCH` renames the calendar that `DELETE` refuses to touch.** Confirmed
+2026-09-02 against the real account's default calendar: `207` with a `200`
+propstat, and a listing then reported the new name. So "the default calendar is
+special" is true of deleting and false of renaming, and the tool deliberately has
+no guard against picking it — that would defeat the point.
+
+**A 207 is an envelope, not an answer.** A server may say multi-status and then
+refuse the property inside it, so `_property_refused()` reads every
+`DAV:status` in the reply and treats anything that is not a 2xx as a failure.
+Reading only the outer code would report a refusal as a rename, which is the
+worst outcome available here: the old name is gone from the screen and never left
+the server.
+
+**The old name is printed before and after, because nothing remembers it.** A
+rename is reversible only while somebody knows what the name was, and this
+replaces the only copy. That is also why renaming stays a typed command and does
+not go in the add-on, per the rule above about published builds.
+
+**There is a handout for this, and it is written for somebody outside the
+project.** `handouts/how-to-rename-a-calendar.pdf`, with a companion for making
+a calendar. They are the only documents here aimed at a Thundermail subscriber
+rather than at us: no repo knowledge assumed, the app-password trap explained,
+what to expect in Thunderbird afterwards, and the four errors people actually
+hit. Second person throughout, per the audience rule — these are the pages where
+that rule stops being theoretical.
+
+**No JavaScript twin**, and the `RENAME` body deliberately has no counterpart in
+`caldav_account.js`: the add-on does not rename, so there is nothing to keep in
+sync. If that ever changes, the body moves to the shared module and gains a
+fixture, like everything else the two halves share.
+
 ## Thundermail expected settings
 
 From `pulumi/config.prod.yaml` in
@@ -711,6 +751,7 @@ caldav_account.py           shared by the CalDAV tools: the connection, and the 
 caldav_asking.py            shared by the CalDAV tools: credentials, and confirming
 caldav_list_calendars.py    CLI: name the default calendar, and list the rest
 caldav_make_calendar.py     CLI: make a calendar to test in, which Thunderbird cannot
+caldav_rename_calendar.py   CLI: shorten a calendar name the server chose
 caldav_import_ics.py        CLI: calendar file -> one entry per request on a server
 caldav_delete_events.py     CLI: take a scrubbed import back off a server
 caldav_delete_calendars.py  CLI: delete the test calendars, keeping the default
@@ -724,6 +765,9 @@ firefox-addon/making-a-calendar.{html,pdf}  the write path, step by step, for
 troubleshooting_info.js     the parser again, for the browser
 verdicts.js                 the engine again, for the browser
 index.html, app.js, style.css   the webapp; app.js only reads the textarea
+handouts/how-to-{rename,make}-a-calendar.{html,pdf}
+                            one-pagers for support staff and subscribers who
+                            have never seen this repo; PDFs printed from the HTML
 fixtures/                   golden fixtures, plus two companions each
                             (ics-*.ics have one: .expected.ics;
                             caldav-home-*.xml have one: .expected.json,

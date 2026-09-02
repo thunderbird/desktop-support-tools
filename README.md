@@ -128,6 +128,65 @@ An organiser with no address stays empty rather than being given one. Exchange
 exports quite often look like that, and inventing a person who was never there
 is its own kind of wrong answer.
 
+## Handouts you can give people
+
+Two one-page PDFs in `handouts/`, written for somebody who has never seen this
+repository — a support colleague, or a Thundermail subscriber comfortable with a
+terminal. They assume nothing beyond that, cover what to expect afterwards, and
+end with the errors people actually hit:
+
+- [`handouts/how-to-rename-a-calendar.pdf`](handouts/how-to-rename-a-calendar.pdf)
+  — shortening the long default name.
+- [`handouts/how-to-make-a-calendar.pdf`](handouts/how-to-make-a-calendar.pdf)
+  — making a second calendar, which nothing else can do.
+
+Each has its `.html` source beside it; reprint by opening that in a browser and
+printing to PDF.
+
+## Shortening a calendar name
+
+Thundermail names your default calendar after your account, so it arrives as
+something like `Nemo Thundermail Calendar (nemo@thundermail.com)` — long enough
+to be cut off in Thunderbird's calendar list, and it has your email address in
+it. Neither Thunderbird nor Thundermail's web interface can change that name,
+but the server accepts the change perfectly well:
+
+```sh
+export CALDAV_USER='you@thundermail.com'
+CAL_HOME='https://mail.thundermail.com/dav/cal/you%40thundermail.com/'
+
+uv run caldav_list_calendars.py "$CAL_HOME" --all              # see what you have
+uv run caldav_rename_calendar.py "$CAL_HOME" \
+    --only "Your Thundermail Calendar (you@thundermail.com)" \
+    --to "Calendar"                                            # dry run
+uv run caldav_rename_calendar.py "$CAL_HOME" \
+    --only default --to "Calendar" --rename                    # do it
+```
+
+`--only` accepts either the name Thunderbird shows **or** the last part of the
+address, which is why the third command can just say `default`. Nothing is sent
+until you add `--rename`, and `--confirm` asks you before it does.
+
+**Write the old name down first.** The tool prints it before and after, and
+nothing anywhere remembers it: putting it back means running the same command
+with the old name. That is the whole reason renaming is a command you type rather
+than a button in the add-on.
+
+Three things worth knowing:
+
+- **Renaming does not move the calendar.** Its address stays the same, so
+  anything already subscribed to it stays subscribed and nothing needs re-adding.
+- **Thunderbird may go on showing the old name** from its own cache until it next
+  looks. If it does, that is Thunderbird rather than the server — check with
+  `caldav_list_calendars.py`, which asks the server directly.
+- **Thunderbird has a rename of its own**, in calendar Properties. Whether it
+  changes the name on the server or only in your copy is being checked; if it is
+  local only, it is still the easiest way to get a shorter label in your own
+  client.
+
+You need an app password for this, as with everything else here — see
+[What you need first](#what-you-need-first).
+
 ## Making, filling and deleting a test calendar by hand
 
 Reproducing a calendar bug means making a calendar, filling it with a scrubbed
