@@ -45,9 +45,18 @@
         screenshot you take.
       </p>
       <p>
-        Neither Thunderbird nor the Thundermail website can change it today. The mail server itself
-        is perfectly happy to, and this is a small script that asks it to. <b>You will need a
-        terminal.</b>
+        <b>First, the shortcut.</b> If all you want is a shorter name in your own calendar list,
+        right-click the calendar in Thunderbird, choose Properties, and type a new Name. That is the
+        whole job: no terminal, no app password, and nothing sent anywhere. It changes only what your
+        Thunderbird shows you — the calendar is still called the long name on the server, on your
+        phone, and for anyone you share it with.
+      </p>
+      <p>
+        <b>To change the real name</b>, you need this script, because neither Thunderbird nor the
+        Thundermail website can change what the server calls a calendar. The server itself is
+        perfectly happy to, and this asks it to. <b>You will need a terminal.</b> Do this if you want
+        your other devices and a fresh subscription to see the short name too, or if you want your
+        email address out of the name for good.
       </p>
     </div>
 
@@ -134,14 +143,20 @@ uv run caldav_list_calendars.py "$CAL_HOME" --all</pre>
         genuinely just a relabelling.
       </li>
       <li>
-        <b>Thunderbird may keep showing the old name</b> for a while, from its own copy. That is
-        Thunderbird, not the server; the listing command asks the server directly, so it is the one
-        to trust.
+        <b>Thunderbird will keep showing the old name, and restarting it does not help.</b> The name
+        in its calendar list is its own copy, not the server's, and it does not go back and ask. The
+        rename you just made is real — the listing command asks the server directly, and it is the
+        one to trust — but you will not see it in Thunderbird until you change the name there too,
+        which is the next item, or subscribe to the calendar afresh.
       </li>
       <li>
-        <b>Thunderbird has a rename of its own</b>, in the same Properties dialog. Whether that
-        changes the name on the server or only your copy of it is still being checked. If you only
-        want a shorter label in your own client, it is worth trying first — it needs no terminal.
+        <b>Thunderbird has a rename of its own</b>, in the same Properties dialog: right-click the
+        calendar, choose Properties, and type a new Name. That changes only what your own Thunderbird
+        shows you. It never reaches the server, so it needs no terminal and no app password, and
+        nobody else and no other device sees it. <b>If a shorter name in your own calendar list is
+        all you want, do that instead and stop here.</b> The script is for changing what the calendar
+        is really called: what the server says, what a new subscription picks up, and what your phone
+        or any other calendar app shows you.
       </li>
     </ul>
 

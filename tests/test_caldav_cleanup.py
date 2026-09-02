@@ -772,6 +772,9 @@ def test_a_dry_run_renames_nothing(monkeypatch, capsys) -> None:
     printed = capsys.readouterr().out
     assert "'ticket 7067'" in printed, "the old name is printed before anything is sent"
     assert "dry run" in printed
+    # The dry run is where the warning is worth most: it is the reason somebody
+    # who only wants a shorter label in their own client should not run this.
+    assert "restarting it does not help" in printed, "the dry run warns too"
 
 
 def test_renaming_sends_the_new_name_to_the_right_calendar(monkeypatch, capsys) -> None:
@@ -788,6 +791,11 @@ def test_renaming_sends_the_new_name_to_the_right_calendar(monkeypatch, capsys) 
     assert "<D:displayname>Budget &amp; forecast</D:displayname>" in body
     printed = capsys.readouterr().out
     assert "was 'ticket 7067'" in printed, "the old name is printed again afterwards"
+    # Confirmed on a real account: Thunderbird shows its own copy of the name and
+    # never re-reads the server's, so a rename that worked looks like one that did
+    # not. Saying so is the difference between a puzzled subscriber and a fixed one.
+    assert "restarting it does not help" in printed, "the client-side warning is printed"
+    assert "Properties" in printed, "and says what to do about it"
 
 
 def test_the_address_picks_the_calendar_too(monkeypatch) -> None:

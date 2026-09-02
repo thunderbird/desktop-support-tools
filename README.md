@@ -186,13 +186,18 @@ Three things worth knowing:
   because subscriptions follow the address; and when you want to be certain which
   calendar you mean, name it by its address, since a display name is only as
   current as the last rename.
-- **Thunderbird may go on showing the old name** from its own cache until it next
-  looks. If it does, that is Thunderbird rather than the server — check with
-  `caldav_list_calendars.py`, which asks the server directly.
-- **Thunderbird has a rename of its own**, in calendar Properties. Whether it
-  changes the name on the server or only in your copy is being checked; if it is
-  local only, it is still the easiest way to get a shorter label in your own
-  client.
+- **Thunderbird will go on showing the old name, restart included.** The name in
+  its calendar list is its own copy rather than the server's, and it does not go
+  back and ask — confirmed on a real account on 2026-09-02. The rename is real;
+  check with `caldav_list_calendars.py`, which asks the server directly. To see
+  the short name in Thunderbird as well, rename it there too, or subscribe afresh.
+- **Thunderbird's own rename never reaches the server.** Calendar Properties
+  changes only what your Thunderbird shows you — which means **if a shorter label
+  in your own calendar list is all anybody wants, that dialog is the whole answer
+  and this tool is not needed**: no terminal, no app password, nothing sent. Reach
+  for `caldav_rename_calendar.py` when the name itself has to change: what the
+  server reports, what a new subscription picks up, what other clients show, and
+  whether it still contains an email address.
 
 You need an app password for this, as with everything else here — see
 [What you need first](#what-you-need-first).

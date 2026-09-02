@@ -8,10 +8,10 @@
 Thundermail names your default calendar after your account -- "Nemo Thundermail
 Calendar (nemo@thundermail.com)" -- and subscribers have said it is too long. It
 is also the one place these tools print an email address. Nothing in Thunderbird
-or in Thundermail's web interface renames a calendar, but the server has no
-objection: PROPPATCH on the collection returned 207 with a 200 propstat against
-a real account's *default* calendar, which is the one calendar it refuses to let
-anybody delete.
+or in Thundermail's web interface renames a calendar on the server, but the
+server itself has no objection: PROPPATCH on the collection returned 207 with a
+200 propstat against a real account's *default* calendar, which is the one
+calendar it refuses to let anybody delete.
 
     uv run caldav_rename_calendar.py HOME --only "long name" --to "Calendar"
     uv run caldav_rename_calendar.py HOME --only long-name --to "Calendar" --rename
@@ -46,8 +46,12 @@ because a subscription follows the address; and the address is the identifier to
 give --only when you want certainty, since a name is only as current as the last
 rename.
 
-Thunderbird may go on showing the old name from its own cache until it next
-looks.
+**Thunderbird will not show the new name.** The name in its calendar list is its
+own copy: renaming there never reaches the server, and this never reaches
+Thunderbird -- restarting it does not help. Confirmed on a real account on
+2026-09-02. So this changes what the server, a new subscription and every other
+client call the calendar, and somebody who only wants a shorter label in their
+own Thunderbird wants its Properties dialog instead of this tool.
 """
 
 from __future__ import annotations
@@ -72,6 +76,18 @@ RENAME = """<?xml version="1.0" encoding="utf-8"?>
   <D:set><D:prop><D:displayname>{name}</D:displayname></D:prop></D:set>
 </D:propertyupdate>
 """
+
+# Said by the dry run and again after a rename, because it is the reason somebody
+# might not want to run this at all. Confirmed on a real account on 2026-09-02:
+# renaming in Thunderbird's Properties dialog never reaches the server, and a
+# rename on the server never reached Thunderbird, restart included.
+IN_THUNDERBIRD = (
+    "Thunderbird will go on showing the old name, and restarting it does not help:\n"
+    "the name in its calendar list is its own copy rather than the server's. To\n"
+    "change what you see there, right-click the calendar, choose Properties, and\n"
+    "type the name in -- that changes your copy only and sends nothing anywhere. The\n"
+    "server, a new subscription and any other client use the name set here."
+)
 
 
 class Renamer(Account):
@@ -242,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.rename:
             print("\nThis was a dry run; add --rename to go ahead.")
+            print(f"\n{IN_THUNDERBIRD}")
             return 0
 
         if args.confirm and not args.yes:
@@ -262,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
 
         print(f"\nRenamed. It was {was!r}, and is now {name!r}.")
         print("Write the old name down if you might want it back -- nothing here remembers it.")
-        print("Thunderbird may go on showing the old name until it next looks.")
+        print(f"\n{IN_THUNDERBIRD}")
         return 0
     finally:
         account.close()
