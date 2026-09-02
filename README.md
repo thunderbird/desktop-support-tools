@@ -164,8 +164,9 @@ uv run caldav_rename_calendar.py "$CAL_HOME" \
 ```
 
 `--only` accepts either the name Thunderbird shows **or** the last part of the
-address, which is why the third command can just say `default`. If it matches
-more than one calendar it lists them and renames nothing. Nothing is sent until
+address, which is why the third command can just say `default`. The address is
+the safer of the two, because renaming does not change it — see below. If it
+matches more than one calendar it lists them and renames nothing. Nothing is sent until
 you add `--rename`, and `--confirm` asks you before it does.
 
 **Write the old name down first.** The tool prints it before and after, and
@@ -175,8 +176,15 @@ than a button in the add-on.
 
 Three things worth knowing:
 
-- **Renaming does not move the calendar.** Its address stays the same, so
-  anything already subscribed to it stays subscribed and nothing needs re-adding.
+- **Renaming changes the friendly name and nothing else.** A calendar has two
+  identifiers: its **address**, fixed when it was created and never moved, and
+  its **display name**, which is what you are changing. So a calendar made as
+  "rename test" keeps the address `…/rename-test/` for ever, even once it is
+  called something else entirely — the address is a fossil of the original name.
+  Two useful consequences: nothing already subscribed to it needs re-adding,
+  because subscriptions follow the address; and when you want to be certain which
+  calendar you mean, name it by its address, since a display name is only as
+  current as the last rename.
 - **Thunderbird may go on showing the old name** from its own cache until it next
   looks. If it does, that is Thunderbird rather than the server — check with
   `caldav_list_calendars.py`, which asks the server directly.

@@ -585,6 +585,22 @@ Reading only the outer code would report a refusal as a rename, which is the
 worst outcome available here: the old name is gone from the screen and never left
 the server.
 
+**A calendar has two identifiers, and renaming changes only one of them.** The
+address is fixed when the calendar is created and nothing moves it; the display
+name is whatever it is currently called. So after one rename the two disagree,
+and the address is a fossil of what the calendar was called when it was made:
+
+| | Changes? | Comes from |
+|---|---|---|
+| address — `/rename-test/` | never | fixed at creation |
+| display name — `renamed` | every rename | the last rename |
+
+That is why `caldav_make_calendar.py` derives the address from the name and then
+never touches it again, why renaming does not break a subscription (the address
+is what a client subscribed to), and why the *address* is the identifier to trust
+when you mean a particular calendar: a name is only as current as the last
+rename. Every listing prints both — name unindented, address indented under it.
+
 **`--only` refuses an ambiguous name, in this tool and in
 `caldav_delete_calendars.py`.** It accepts a display name *or* the last part of
 an address, and on a real account those turned out to be a character apart:

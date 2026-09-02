@@ -36,9 +36,17 @@ the password.
 rename is reversible only while somebody still knows what the name was, and this
 is about to overwrite the only copy of it. Write it down.
 
-Renaming does not move the calendar: the address stays as it was, so anything
-subscribed to it stays subscribed. Thunderbird may go on showing the old name
-from its own cache until it next looks.
+**Only the friendly name changes.** A calendar has two identifiers: its address,
+fixed when it was created, and its display name. Renaming touches the second and
+never the first, so a calendar made as "rename test" answers at
+.../rename-test/ for ever, even once it is called something else -- the address
+is a fossil of the original name. Anything subscribed to it stays subscribed,
+because a subscription follows the address; and the address is the identifier to
+give --only when you want certainty, since a name is only as current as the last
+rename.
+
+Thunderbird may go on showing the old name from its own cache until it next
+looks.
 """
 
 from __future__ import annotations

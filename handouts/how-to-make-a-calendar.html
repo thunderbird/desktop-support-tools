@@ -90,6 +90,12 @@ uv run caldav_list_calendars.py "$CAL_HOME" --all</pre>
       <code>--path</code> to choose the address yourself.
     </p>
     <p>
+      <b>The address is decided here and never changes again.</b> If you rename the calendar later,
+      only the friendly name changes: a calendar created as "Book club" answers at
+      <code>…/book-club/</code> for ever, whatever it ends up being called. That is why it is worth a
+      moment's thought now, and why nothing breaks when you rename it afterwards.
+    </p>
+    <p>
       <b>Nothing is overwritten.</b> If a calendar is already at that address, or already going by
       that name, the script says so and sends nothing — two calendars with one name cannot be told
       apart in Thunderbird's list.

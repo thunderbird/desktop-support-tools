@@ -104,12 +104,34 @@ uv run caldav_list_calendars.py "$CAL_HOME" --all</pre>
       The same command with the old name — which is why step 2 asked you to copy it.
     </p>
 
+    <h2>What renaming does and does not change</h2>
+    <p>
+      Your calendar has <b>two</b> names, and this changes only one of them:
+    </p>
+    <ul>
+      <li>
+        <b>The friendly name</b> — what Thunderbird shows you in its calendar list. This is what you
+        are shortening.
+      </li>
+      <li>
+        <b>The address</b> — the web address the calendar answers at, like
+        <code>…/dav/cal/you%40thundermail.com/default/</code>. It was decided when the calendar was
+        created and <b>nothing ever changes it</b>, renaming included.
+      </li>
+    </ul>
+    <p>
+      So a calendar created as "Book club" keeps the address <code>…/book-club/</code> for ever, even
+      after you rename it to something else entirely. The address is a fossil of the original name,
+      and that turns out to be useful: it is the one label that cannot have drifted, which is why the
+      script accepts it too — <code>--only default</code> above is an address, not a name.
+    </p>
+
     <h2>What to expect afterwards</h2>
     <ul>
       <li>
-        <b>Nothing needs re-adding.</b> Renaming does not move the calendar: its address is
-        unchanged, so every device already subscribed to it stays subscribed, and your events are
-        untouched.
+        <b>Nothing needs re-adding.</b> Because the address is unchanged, every device already
+        subscribed to this calendar stays subscribed, and your events are untouched. Renaming is
+        genuinely just a relabelling.
       </li>
       <li>
         <b>Thunderbird may keep showing the old name</b> for a while, from its own copy. That is
