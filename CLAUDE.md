@@ -465,8 +465,18 @@ user: the fourteen steps from the click to the request, quoting the code at each
 one, and the bytes that go on the wire. It is the document to hand somebody who
 asks what the add-on actually does before they let it near an account.
 
-To reprint either: open the HTML in a browser and print to PDF. There is no
+To reprint any of them: open the HTML in a browser and print to PDF. There is no
 script, because rendering needs a browser and this repo has no dependencies.
+
+**The committed PDFs came out of Chrome, not Firefox**, which is worth knowing
+before replacing one: every `/Producer` in them reads `Skia/PDF`, the pages are
+Letter, and the page's own `@page` rule supplies the margins. A headless
+Chromium reproduces that exactly — `page.pdf({preferCSSPageSize: true,
+printBackground: true, displayHeaderFooter: false})` — which is how
+`handouts/how-to-rename-a-calendar.pdf` was reprinted on 2026-09-02, and it is
+the way to do it when only the wording changed. Print by hand if the layout
+changed, and look at the result: a page's worth of new text moved that handout
+from two pages to three.
 
 **`caldav_account.js` reads the XML itself rather than using `DOMParser`.** Two
 reasons, and the first is the one that matters: the same code then runs under
