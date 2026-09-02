@@ -585,8 +585,30 @@ carry across from the last one.
 **Written because subscribers complained, not to complete a set.** Thundermail
 generates the default calendar's name from the account, which makes it long
 enough to truncate in Thunderbird's list and puts an email address in it (#18,
-#25). Neither client nor web UI renames a calendar; the server does, and that
-asymmetry is the whole reason this exists.
+#25). Neither client nor web UI renames the calendar *on the server* — only the
+server does, and that asymmetry is the whole reason this exists.
+
+**Thunderbird's calendar name is local in both directions, and that limits what
+this tool can do for somebody already subscribed.** Confirmed 2026-09-02, both
+halves on the real account: a rename in Thunderbird's calendar Properties is
+accepted and never reaches the server, and the server-side rename to `Calendar`
+never appeared in Thunderbird — a restart did not bring it either, unlike a
+*brand new* calendar, which is discovered live (#24). So a `PROPPATCH` changes what the
+server, a fresh subscription and every other client call that calendar, and
+changes nothing on the screen of the person who complained about the name.
+
+Which makes the support answer depend on what is actually wanted, and the shorter
+answer is the one that needs no terminal:
+
+- **A shorter label in the calendar list** — Properties in Thunderbird, one
+  dialog, no app password and nothing sent anywhere. This tool is not needed.
+- **The name itself, because it carries an email address (#18)** — then this tool
+  is the only thing that fixes it, and they will want to rename locally as well,
+  because the client will not pick the new name up.
+
+Whether Thunderbird ignores `DAV:displayname` in general, or only once a local
+name has been stored, is not established: the calendar tested had been renamed
+in the client first (#25, step 1a). Do not write it up upstream on this evidence.
 
 **`PROPPATCH` renames the calendar that `DELETE` refuses to touch.** Confirmed
 2026-09-02 against the real account's default calendar, first with `curl` and
