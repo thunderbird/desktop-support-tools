@@ -570,8 +570,11 @@ enough to truncate in Thunderbird's list and puts an email address in it (#18,
 asymmetry is the whole reason this exists.
 
 **`PROPPATCH` renames the calendar that `DELETE` refuses to touch.** Confirmed
-2026-09-02 against the real account's default calendar: `207` with a `200`
-propstat, and a listing then reported the new name. So "the default calendar is
+2026-09-02 against the real account's default calendar, first with `curl` and
+then with the tool itself: `207` with a `200` propstat, and a listing then
+reported the new name. A **non-default** calendar has not been renamed against
+Stalwart yet — identical code with a different href, and the fake-server tests
+cover it, so it is confirmation rather than exploration (#26 step 7). So "the default calendar is
 special" is true of deleting and false of renaming, and the tool deliberately has
 no guard against picking it — that would defeat the point.
 
