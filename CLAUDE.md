@@ -549,7 +549,8 @@ server has no objection to renaming the calendar it will not let you delete.
 That makes #18 mostly somebody else's fix — a subscriber who shortens the name
 has no address on screen — and it is why subscribers complaining about the
 length (#25) have a real answer rather than a workaround. The tool for it is
-#26; nothing here sends `PROPPATCH` yet.
+`caldav_rename_calendar.py` (#26), and that is where the `PROPPATCH` lives —
+this one still sends `PROPFIND` and nothing else, per the rule above.
 
 The test account's default calendar is called **`Calendar`** as of 2026-09-02,
 because it was renamed while confirming the above. Anything that expects the
