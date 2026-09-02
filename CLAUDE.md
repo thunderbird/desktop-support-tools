@@ -535,11 +535,24 @@ included, and the display name is the last thing that tells you which calendar
 the account schedules into.
 
 **Its output is the one place these tools emit a real address.** Thundermail
-generates the default calendar's name from the account, so on
-`nemo@thundermail.com` it is `Nemo Thundermail Calendar (nemo@thundermail.com)`.
-The no-PII rule is free everywhere else because no verdict needs an address;
-here the answer *is* one. Issue #18 is where what to do about that is being
-decided — until then, do not treat that output as safe to paste.
+generates the default calendar's name from the account, so it arrives as
+`<display name> Thundermail Calendar (<address>)` — 48 characters on the test
+account. The no-PII rule is free everywhere else because no verdict needs an
+address; here the answer *is* one, which is issue #18.
+
+**And it can be renamed, which is confirmed and changes what to do about it.**
+`PROPPATCH` setting `DAV:displayname` on the collection returned `207` with a
+`200` propstat against `nemo@thundermail.com`'s **default** calendar on
+2026-09-02, and `caldav_list_calendars.py` then reported the new name. So the
+server has no objection to renaming the calendar it will not let you delete.
+That makes #18 mostly somebody else's fix — a subscriber who shortens the name
+has no address on screen — and it is why subscribers complaining about the
+length (#25) have a real answer rather than a workaround. The tool for it is
+#26; nothing here sends `PROPPATCH` yet.
+
+The test account's default calendar is called **`Calendar`** as of 2026-09-02,
+because it was renamed while confirming the above. Anything that expects the
+long name is out of date rather than broken.
 
 `caldav_account.py` exists because of this tool. The connection and the listing
 used to live in `caldav_delete_calendars.py`, which was fine while every tool
