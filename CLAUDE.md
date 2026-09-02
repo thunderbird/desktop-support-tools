@@ -561,6 +561,24 @@ changed something; a read-only tool would have had to import `DELETE` to ask a
 question. `Connection` is the transport, `Account` is the calendars on it, and
 the verbs are subclasses: `Deleter`, `Maker`, `Importer`.
 
+## Subscribing to it in Thunderbird afterwards
+
+**A calendar made while Thunderbird is running is listed without a restart.**
+Confirmed 2026-09-02: a calendar created on the server with Thunderbird already
+open appeared in **New Calendar → On the Network** with nothing quit or
+reopened. So discovery really does ask the server when you open the dialog, and
+the four places that tell you to subscribe that way — the add-on's success
+message, `caldav_make_calendar.py`'s closing line and its docstring, and the
+README — are right as they stand (#24).
+
+Worth watching happen rather than reasoning about, because this repo has been
+caught by the same inference pointing the other way: `about:support` keeps
+listing mail accounts that have been deleted, because it reads the account
+manager's in-memory list rather than re-reading `prefs.js`, and only a restart
+clears them (#3). Two different code paths, two different answers — so “does
+this need a restart?” is a question to ask of each dialog, and never one to
+carry across from the last one.
+
 ## Renaming a calendar: `caldav_rename_calendar.py`
 
 **Written because subscribers complained, not to complete a set.** Thundermail
