@@ -585,6 +585,16 @@ Reading only the outer code would report a refusal as a rename, which is the
 worst outcome available here: the old name is gone from the screen and never left
 the server.
 
+**`--only` refuses an ambiguous name, in this tool and in
+`caldav_delete_calendars.py`.** It accepts a display name *or* the last part of
+an address, and on a real account those turned out to be a character apart:
+a calendar called `renametest` and another at `.../rename-test/`, one of them the
+default. So a value matching more than one calendar lists them and does nothing,
+rather than taking the first — which would have been the tool deciding something
+the person running it had not said. The matching pass now runs before the
+listing is printed, so no calendar is described as "would be deleted" by a run
+that then refuses.
+
 **The old name is printed before and after, because nothing remembers it.** A
 rename is reversible only while somebody knows what the name was, and this
 replaces the only copy. That is also why renaming stays a typed command and does

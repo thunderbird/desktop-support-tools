@@ -23,7 +23,9 @@ from Thunderbird's Properties dialog with the last part taken off:
     https://mail.example.com/dav/cal/you@example.com/                <- HOME
 
 --only picks the calendar, by the name Thunderbird shows or by the last part of
-its address, and --to is what it should be called instead. It reports and changes
+its address, and --to is what it should be called instead. If it matches more
+than one calendar -- a display name and another calendar's address can be a
+character apart -- it lists them and renames nothing. It reports and changes
 nothing until you add --rename. --confirm shows the old name and the new one and
 asks first; --yes asks nothing.
 
@@ -174,13 +176,28 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-        picked = None
-        for href, existing in calendars:
-            path = _path_of(href)
-            if wanted in {existing.casefold(), path.rsplit("/", 1)[-1].casefold()}:
-                picked = (href, existing, path)
-                break
+        # Every match, not the first: a display name and an address can be one
+        # character apart -- "renametest" and "rename-test" were on one real
+        # account, pointing at different calendars -- and picking whichever came
+        # first would rename the one nobody meant.
+        found = [
+            (href, existing, _path_of(href))
+            for href, existing in calendars
+            if wanted in {existing.casefold(), _path_of(href).rsplit("/", 1)[-1].casefold()}
+        ]
 
+        if len(found) > 1:
+            print(f"{args.only!r} matches {len(found)} calendars:\n")
+            for _, existing, path in found:
+                print(f"  {existing}")
+                print(f"    {path}")
+            print(
+                "\nNothing was renamed. Name one of them exactly -- the display name and the\n"
+                "last part of the address are both accepted, and here they disagree."
+            )
+            return 1
+
+        picked = found[0] if found else None
         if picked is None:
             print(f"Nothing here is called {args.only!r}. These are:\n")
             for href, existing in calendars:

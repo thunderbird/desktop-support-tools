@@ -25,8 +25,10 @@ from Thunderbird's Properties dialog with the last part taken off:
 --only is the one to reach for when you know which calendar you mean: it takes
 the name Thunderbird shows or the last part of the address, may be given more
 than once, and everything not named is left alone. A name that matches nothing
-stops the run rather than deleting nothing quietly. It contradicts --keep, so no
-command may have both.
+stops the run rather than deleting nothing quietly, and **a name that matches
+more than one calendar stops it too** -- a display name and somebody else's
+address can be a character apart, and picking one of them is not this tool's
+decision to make. It contradicts --keep, so no command may have both.
 
 It reports and changes nothing until you add --delete. With --delete it asks you
 to type the number of calendars first; --delete --confirm asks about each one
@@ -143,13 +145,22 @@ def main(argv: list[str] | None = None) -> int:
         # because both are in front of you: the name is what Thunderbird shows
         # and the address is what this tool and the add-on print.
         wanted = {name.strip("/").casefold() for name in args.only}
-        answered_to: set[str] = set()
+        # Which calendars each --only matched. A display name and an address can
+        # be one character apart -- "renametest" and "rename-test" were on one
+        # real account, pointing at different calendars -- so how many a name
+        # matched has to be known before anything is deleted, not after.
+        matched: dict[str, list[tuple[str, str]]] = {name: [] for name in wanted}
+        for href, name in calendars:
+            goes_by = {name.casefold(), _path_of(href).rsplit("/", 1)[-1].casefold()}
+            for value in goes_by & wanted:
+                matched[value].append((href, name))
+        ambiguous = {value for value, found in matched.items() if len(found) > 1}
+
         doomed = []
         print(f"{_count(len(calendars), 'calendar')} under {account.path}:\n")
         for href, name in calendars:
             path = _path_of(href)
             goes_by = {name.casefold(), path.rsplit("/", 1)[-1].casefold()}
-            answered_to |= goes_by & wanted
             # Guessing the default from its address is normally a bad idea, but
             # the only cost of guessing wrong here is keeping a calendar you
             # meant to delete, and the server refusing remains the real
@@ -159,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
                        else "kept, its address says default and the server would not say")
             elif name.casefold() in keep:
                 why = "kept, you asked"
+            elif goes_by & ambiguous:
+                why = "kept, that name matches more than one calendar"
             elif wanted and not (goes_by & wanted):
                 why = "kept, not one you named"
             else:
@@ -174,10 +187,26 @@ def main(argv: list[str] | None = None) -> int:
                 "will refuse and be reported, not deleted."
             )
 
+        # More than one match is not a licence to delete both. The point of
+        # --only is that you know which calendar you mean, so if the name does
+        # not say, nothing goes until you have said it another way.
+        if ambiguous:
+            print()
+            for value in ambiguous:
+                print(f"{value!r} matches {_count(len(matched[value]), 'calendar')}:")
+                for href, name in matched[value]:
+                    print(f"  {name}")
+                    print(f"    {_path_of(href)}")
+            print(
+                "\nNothing was deleted. Name one of them exactly -- the display name and the\n"
+                "last part of the address are both accepted, and here they disagree."
+            )
+            return 1
+
         # A name that matches nothing is a typo, and a typo that quietly deletes
         # nothing is one you make again. Say which, and say it before anything
         # is deleted rather than after.
-        missing = [name for name in args.only if name.strip("/").casefold() not in answered_to]
+        missing = [name for name in args.only if not matched[name.strip("/").casefold()]]
         if missing:
             print(f"\nNothing here is called {', '.join(repr(name) for name in missing)}.")
             print("Nothing was deleted. The names above are what there is to choose from.")

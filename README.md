@@ -164,8 +164,9 @@ uv run caldav_rename_calendar.py "$CAL_HOME" \
 ```
 
 `--only` accepts either the name Thunderbird shows **or** the last part of the
-address, which is why the third command can just say `default`. Nothing is sent
-until you add `--rename`, and `--confirm` asks you before it does.
+address, which is why the third command can just say `default`. If it matches
+more than one calendar it lists them and renames nothing. Nothing is sent until
+you add `--rename`, and `--confirm` asks you before it does.
 
 **Write the old name down first.** The tool prints it before and after, and
 nothing anywhere remembers it: putting it back means running the same command
@@ -480,9 +481,18 @@ uv run caldav_delete_calendars.py "$CAL_HOME" --only "ticket 7067" --delete
 
 `--only` takes the name Thunderbird shows **or** the last part of the address —
 both are in front of you, one in Thunderbird and one in this tool's own listing —
-and leaves everything else alone. Give it more than once for several. A name
-that matches nothing stops the run and says so, rather than deleting nothing and
-looking like success. It contradicts `--keep`, so no command takes both.
+and leaves everything else alone. Give it more than once for several. It
+contradicts `--keep`, so no command takes both.
+
+Two things stop the run rather than proceeding, and both were worth building:
+
+- **A name that matches nothing.** Otherwise a typo deletes nothing and looks
+  like success, which is a typo you make again.
+- **A name that matches more than one calendar.** A display name and another
+  calendar's address can be a single character apart — one real account had a
+  calendar called `renametest` and another at `…/rename-test/` — so the tool
+  lists both and deletes neither until you have named one of them exactly.
+  Deciding for you is precisely what a tool with no undo should not do.
 
 Without `--only` the tool works the other way round: everything except the
 default and anything you `--keep`. That is the right shape for clearing out an

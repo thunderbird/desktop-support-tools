@@ -1710,6 +1710,62 @@ def test_yes_does_not_mean_delete(monkeypatch, capsys) -> None:
     assert "dry run" in capsys.readouterr().out
 
 
+# A real account looked like this: the default calendar had been renamed to
+# "renametest", and a throwaway sat at /rename-test called something else. One
+# --only can match both, by name on one and by address on the other.
+CROSSED = multistatus(
+    collection("/dav/cal/you/default", "renametest", "calendar")
+    + collection("/dav/cal/you/renametest/", "something else", "calendar")
+)
+
+
+def test_an_only_that_matches_two_calendars_deletes_neither(monkeypatch, capsys) -> None:
+    """The point of --only is that you know which one you mean.
+
+    Deleting both, or the first, is the tool deciding something the person
+    running it did not say -- and one of the two here is the calendar that
+    cannot be deleted at all.
+    """
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, CROSSED)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "renametest", "--delete", "--yes"],
+               monkeypatch, account)
+    assert code == 1
+    assert deleted == []
+    printed = capsys.readouterr().out
+    assert "matches 2 calendars" in printed
+    assert "/dav/cal/you/default" in printed and "/dav/cal/you/renametest" in printed
+
+
+def test_an_only_that_matches_two_calendars_renames_neither(monkeypatch, capsys) -> None:
+    account = Renamer("https://host/dav/cal/you/", "u", "p")
+    sent: list[str] = []
+
+    def reply(method, path, body):
+        sent.append(method)
+        return (207, CROSSED)
+
+    talking(account, reply)
+    code = run(rename_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "renametest",
+                "--to", "Calendar", "--rename"],
+               monkeypatch, account)
+    assert code == 1
+    assert "PROPPATCH" not in sent
+    printed = capsys.readouterr().out
+    assert "matches 2 calendars" in printed
+    assert "renametest" in printed and "something else" in printed
+
+
 def test_only_deletes_the_one_you_named(monkeypatch, capsys) -> None:
     account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []
