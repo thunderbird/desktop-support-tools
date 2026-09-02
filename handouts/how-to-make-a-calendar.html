@@ -28,6 +28,8 @@
       .lede p:last-child { margin-bottom: 0; }
       .warn { border-left: 3px solid var(--warn); padding: 0.5rem 0.75rem; margin: 0 0 0.6rem; }
       .warn b { color: var(--warn); }
+      a { color: #0250bb; }
+      .url { font-family: "SF Mono", Menlo, ui-monospace, monospace; font-size: 7.8pt; color: var(--quiet); overflow-wrap: anywhere; }
       footer { margin-top: 1.1rem; padding-top: 0.5rem; border-top: 1px solid var(--rule); color: var(--quiet); font-size: 8.3pt; }
     </style>
   </head>
@@ -51,8 +53,10 @@
     <h2><span class="n">1</span> What you need</h2>
     <ul>
       <li>
-        <b>An app password</b>, made in your Thundermail settings — not the password you type into
-        Thunderbird, which uses a sign-in method this cannot.
+        <b>An app password</b> — not the password you type into Thunderbird, which uses a sign-in
+        method this cannot. Thundermail's instructions for making one:
+        <a href="https://support.tb.pro/hc/articles/46805020320275-Create-an-App-Password">Create an App Password</a><br />
+        <span class="url">https://support.tb.pro/hc/articles/46805020320275-Create-an-App-Password</span>
       </li>
       <li>
         <b>The address of your calendars.</b> In Thunderbird, right-click a calendar, choose
@@ -118,7 +122,8 @@ uv run caldav_delete_calendars.py "$CAL_HOME" --only "Book club" --delete</pre>
     <ul>
       <li>
         <b>"The server would not accept that username and password"</b> — almost always an account
-        password where an app password is needed.
+        password where an app password is needed; see
+        <a href="https://support.tb.pro/hc/articles/46805020320275-Create-an-App-Password">Create an App Password</a>.
       </li>
       <li>
         <b>"No calendars under …"</b> — the address you gave is one calendar rather than all of

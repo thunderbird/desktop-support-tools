@@ -275,7 +275,9 @@ neither flag, because it changes nothing and so has nothing to ask you about.
 
 **An app password, not your account password.** These requests authenticate with
 HTTP Basic, so an account that signs in with OAuth2 will reject the password you
-type into Thunderbird. Make an app password in your provider's settings.
+type into Thunderbird. Make an app password in your provider's settings — for
+Thundermail, [Create an App
+Password](https://support.tb.pro/hc/articles/46805020320275-Create-an-App-Password).
 
 **The address of the account's calendars.** In Thunderbird, right-click the
 calendar → **Properties** → **Location** gives one calendar's address; take the
