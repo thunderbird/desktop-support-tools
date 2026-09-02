@@ -22,10 +22,11 @@ from Thunderbird's Properties dialog with the last part taken off:
     https://mail.example.com/dav/cal/you@example.com/some-calendar/  <- one calendar
     https://mail.example.com/dav/cal/you@example.com/                <- HOME
 
---only picks the calendar, by the name Thunderbird shows or by the last part of
-its address, and --to is what it should be called instead. If it matches more
-than one calendar -- a display name and another calendar's address can be a
-character apart -- it lists them and renames nothing. It reports and changes
+--only picks the calendar, by the name Thunderbird shows, by the last part of
+its address, or by the whole address as printed in a listing; --to is what it
+should be called instead. If it matches more than one calendar -- a display name
+and another calendar's address can be a character apart -- it lists them and
+renames nothing, and pasting the whole address settles it. It reports and changes
 nothing until you add --rename. --confirm shows the old name and the new one and
 asks first; --yes asks nothing.
 
@@ -58,6 +59,7 @@ from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
 from caldav_account import DAV, Account, _path_of
+from caldav_delete_calendars import _goes_by, _however_named
 from caldav_asking import Refused, add_confirmation, add_credentials, agreed, ready
 from caldav_make_calendar import _because
 
@@ -141,7 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         "--only",
         required=True,
         metavar="NAME",
-        help="which calendar, by name or by the last part of its address",
+        help="which calendar, by name, by the last part of its address, or by its"
+        " whole address",
     )
     parser.add_argument(
         "--to",
@@ -156,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    wanted = args.only.strip("/").casefold()
+    wanted = _however_named(args.only)
     name = args.to.strip()
     if not name:
         print("The calendar needs a name. Give --to something.", file=sys.stderr)
@@ -191,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         found = [
             (href, existing, _path_of(href))
             for href, existing in calendars
-            if wanted in {existing.casefold(), _path_of(href).rsplit("/", 1)[-1].casefold()}
+            if wanted in _goes_by(href, existing)
         ]
 
         if len(found) > 1:
@@ -200,8 +203,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {existing}")
                 print(f"    {path}")
             print(
-                "\nNothing was renamed. Name one of them exactly -- the display name and the\n"
-                "last part of the address are both accepted, and here they disagree."
+                "\nNothing was renamed. The display name and the last part of the address are\n"
+                "both accepted, and here they disagree -- so paste the whole address of the one\n"
+                "you mean, exactly as printed above."
             )
             return 1
 

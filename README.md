@@ -163,9 +163,10 @@ uv run caldav_rename_calendar.py "$CAL_HOME" \
     --only default --to "Calendar" --rename                    # do it
 ```
 
-`--only` accepts either the name Thunderbird shows **or** the last part of the
-address, which is why the third command can just say `default`. The address is
-the safer of the two, because renaming does not change it — see below. If it
+`--only` accepts the name Thunderbird shows, the last part of the address, or
+the whole address — which is why the third command can just say `default`. The
+address is the safer form, because renaming does not change it (see below), and
+the whole address is the one that is unique no matter what anything is called. If it
 matches more than one calendar it lists them and renames nothing. Nothing is sent until
 you add `--rename`, and `--confirm` asks you before it does.
 
@@ -499,8 +500,13 @@ Two things stop the run rather than proceeding, and both were worth building:
 - **A name that matches more than one calendar.** A display name and another
   calendar's address can be a single character apart — one real account had a
   calendar called `renametest` and another at `…/rename-test/` — so the tool
-  lists both and deletes neither until you have named one of them exactly.
-  Deciding for you is precisely what a tool with no undo should not do.
+  lists both and deletes neither. Deciding for you is precisely what a tool with
+  no undo should not do.
+
+  **To settle it, paste the whole address** from the listing:
+  `--only /dav/cal/you%40thundermail.com/rename-test`. An address is unique
+  whatever the names are doing, and it is already printed in front of you.
+  Short names are for convenience; the address is for certainty.
 
 Without `--only` the tool works the other way round: everything except the
 default and anything you `--keep`. That is the right shape for clearing out an

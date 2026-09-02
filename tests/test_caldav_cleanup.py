@@ -1766,6 +1766,67 @@ def test_an_only_that_matches_two_calendars_renames_neither(monkeypatch, capsys)
     assert "renametest" in printed and "something else" in printed
 
 
+def test_a_whole_address_settles_an_ambiguous_name(monkeypatch, capsys) -> None:
+    """The way out of the refusal, and the reason it is the whole address.
+
+    Two calendars can each be ambiguous by name and by segment -- one called
+    "x" at /y and one called "y" at /x -- and then neither has a unique short
+    handle. An address always does, and every listing prints one.
+    """
+    account = Deleter("https://host/dav/cal/you/", "u", "p")
+    deleted: list[str] = []
+
+    def reply(method, path, body):
+        if method == "DELETE":
+            deleted.append(path)
+            return (204, b"")
+        return (207, CROSSED)
+
+    talking(account, reply)
+    code = run(calendars_tool,
+               ["https://host/dav/cal/you/", "-u", "u",
+                "--only", "/dav/cal/you/renametest", "--delete"],
+               monkeypatch, account, answer="1")
+    assert code == 0
+    assert deleted == ["/dav/cal/you/renametest/"]
+    assert "matches 2 calendars" not in capsys.readouterr().out
+
+
+def test_a_whole_address_settles_it_for_renaming_too(monkeypatch) -> None:
+    account = Renamer("https://host/dav/cal/you/", "u", "p")
+    sent: list[tuple[str, str]] = []
+
+    def reply(method, path, body):
+        sent.append((method, path))
+        return (207, RENAMED if method == "PROPPATCH" else CROSSED)
+
+    talking(account, reply)
+    code = run(rename_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "/dav/cal/you/default",
+                "--to", "Calendar", "--rename"],
+               monkeypatch, account)
+    assert code == 0
+    assert [path for method, path in sent if method == "PROPPATCH"] == ["/dav/cal/you/default/"]
+
+
+def test_a_trailing_slash_on_an_address_makes_no_difference(monkeypatch) -> None:
+    """People paste what the listing printed, and some of those end in a slash."""
+    account = Renamer("https://host/dav/cal/you/", "u", "p")
+    sent: list[str] = []
+
+    def reply(method, path, body):
+        sent.append(method)
+        return (207, RENAMED if method == "PROPPATCH" else CROSSED)
+
+    talking(account, reply)
+    code = run(rename_tool,
+               ["https://host/dav/cal/you/", "-u", "u", "--only", "/dav/cal/you/default/",
+                "--to", "Calendar", "--rename"],
+               monkeypatch, account)
+    assert code == 0
+    assert "PROPPATCH" in sent
+
+
 def test_only_deletes_the_one_you_named(monkeypatch, capsys) -> None:
     account = Deleter("https://host/dav/cal/you/", "u", "p")
     deleted: list[str] = []
