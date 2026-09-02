@@ -608,7 +608,9 @@ answer is the one that needs no terminal:
 
 Whether Thunderbird ignores `DAV:displayname` in general, or only once a local
 name has been stored, is not established: the calendar tested had been renamed
-in the client first (#25, step 1a). Do not write it up upstream on this evidence.
+in the client first. #27 is the upstream report, and its first checklist step is
+the reproduction on a calendar never renamed in the client — do not file on this
+evidence alone.
 
 **`PROPPATCH` renames the calendar that `DELETE` refuses to touch.** Confirmed
 2026-09-02 against the real account's default calendar, first with `curl` and
