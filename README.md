@@ -512,12 +512,17 @@ the address is whatever you typed. It is never given the run of the web.
 Confirmed working in Firefox on 2026-09-01: the prompt appears on the first
 click, and the answer is remembered until you revoke it in Add-ons Manager.
 
-**A written account of that, with line numbers:**
-[`firefox-addon/privacy.pdf`](firefox-addon/privacy.pdf), which walks through
-where your email address and app password go, cites the line of code behind
-each claim, and ends with the things it does *not* claim. It is pinned to the
-commit its line numbers came from. `firefox-addon/privacy.html` is the source it
-was printed from.
+**Two written accounts of all this, with line numbers**, both pinned to the
+commit their line numbers came from, and both printed from the `.html` beside
+them:
+
+- [`firefox-addon/privacy.pdf`](firefox-addon/privacy.pdf) — where your email
+  address and app password go, a line of code behind each claim, and the things
+  it does *not* claim.
+- [`firefox-addon/making-a-calendar.pdf`](firefox-addon/making-a-calendar.pdf) —
+  the fourteen steps between clicking **Make it** and the calendar existing,
+  quoting the code at each one, including the exact request that goes on the
+  wire. Written to be read by somebody checking the add-on rather than using it.
 
 **What it stores: nothing.** What you type lives in the popup and goes when the
 popup closes — no extension storage, no sync, no cookies on the request, nothing

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Making a calendar, line by line</title>
+    <style>
+      @page { size: letter; margin: 18mm 16mm 16mm; }
+      :root {
+        --ink: #16161a;
+        --quiet: #5c5c66;
+        --rule: #d8d8de;
+        --code: #f5f5f7;
+        --mark: #0060df;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 10pt;
+        line-height: 1.5;
+      }
+      h1 { margin: 0 0 0.15rem; font-size: 19pt; line-height: 1.2; letter-spacing: -0.01em; }
+      .sub { margin: 0 0 0.2rem; color: var(--quiet); font-size: 11pt; }
+      .pin {
+        margin: 0 0 1.3rem; padding-bottom: 0.8rem;
+        border-bottom: 2px solid var(--ink); color: var(--quiet); font-size: 8.6pt;
+      }
+      .pin code { background: none; padding: 0; }
+      h2 {
+        margin: 1.5rem 0 0.5rem; padding-top: 0.5rem;
+        border-top: 1px solid var(--rule); font-size: 12pt; break-after: avoid;
+      }
+      h2 .n { display: inline-block; width: 1.6rem; color: var(--quiet); font-weight: 400; }
+      h2 + .file { margin: -0.3rem 0 0.5rem; color: var(--quiet); font-size: 8.6pt; }
+      .file code { background: none; padding: 0; }
+      p { margin: 0 0 0.6rem; }
+      code {
+        font-family: "SF Mono", Menlo, ui-monospace, monospace; font-size: 8.8pt;
+        background: var(--code); padding: 0.05rem 0.25rem; border-radius: 2px;
+      }
+      pre {
+        margin: 0 0 0.7rem; padding: 0.55rem 0.7rem;
+        background: var(--code); border-left: 3px solid var(--mark);
+        font-family: "SF Mono", Menlo, ui-monospace, monospace;
+        font-size: 8.1pt; line-height: 1.5; white-space: pre-wrap;
+        break-inside: avoid; tab-size: 2;
+      }
+      pre.wire { border-left-color: var(--rule); }
+      table { width: 100%; border-collapse: collapse; margin: 0 0 0.8rem; break-inside: avoid; }
+      th, td {
+        padding: 0.3rem 0.5rem 0.3rem 0; border-bottom: 1px solid var(--rule);
+        text-align: left; vertical-align: top;
+      }
+      th {
+        border-bottom: 1px solid var(--ink); font-size: 8.2pt;
+        text-transform: uppercase; letter-spacing: 0.05em; color: var(--quiet);
+      }
+      td.at { width: 32%; font-family: "SF Mono", Menlo, ui-monospace, monospace; font-size: 8.2pt; color: var(--quiet); }
+      ul { margin: 0 0 0.6rem; padding-left: 1.1rem; }
+      li { margin-bottom: 0.25rem; }
+      .lede { padding: 0.7rem 0.9rem; background: var(--code); border-radius: 3px; margin-bottom: 1rem; }
+      .lede p:last-child { margin-bottom: 0; }
+      footer {
+        margin-top: 1.5rem; padding-top: 0.6rem; border-top: 1px solid var(--rule);
+        color: var(--quiet); font-size: 8.4pt;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Making a calendar, line by line</h1>
+    <p class="sub">Everything that happens between clicking <b>Make it</b> and the calendar existing.</p>
+    <p class="pin">
+      Thundermail calendars add-on, commit <code>ba21bf4</code> of
+      <code>thunderbird/desktop-support-tools</code>. Two files:
+      <code>firefox-addon/popup.js</code>, which is the add-on, and
+      <code>caldav_account.js</code>, which is shared with the command-line tools and tested
+      against the same fixtures as its Python twin. Every line number below is from that commit.
+      Written 1 September 2026.
+    </p>
+
+    <div class="lede">
+      <p>
+        <b>Fourteen steps, one request.</b> Your password is read at step 5 and turned into a
+        header at step 10. The calendar's name is read at step 4, becomes the address at step 7 and
+        the request body at step 8. One <code>MKCALENDAR</code> goes out at step 12. Nothing else
+        is sent, and nothing is kept afterwards.
+      </p>
+    </div>
+
+    <table>
+      <tr><th>Step</th><th>Where</th></tr>
+      <tr><td>1 — the click</td><td class="at">popup.js:79–82</td></tr>
+      <tr><td>2 — ask permission, before anything else</td><td class="at">popup.js:94–102</td></tr>
+      <tr><td>3 — buttons off, errors caught</td><td class="at">popup.js:138–149</td></tr>
+      <tr><td>4 — read the name</td><td class="at">popup.js:189–193</td></tr>
+      <tr><td>5 — read the password</td><td class="at">popup.js:227–237</td></tr>
+      <tr><td>6 — refuse to overwrite</td><td class="at">popup.js:195–209</td></tr>
+      <tr><td>7 — the name becomes the address</td><td class="at">popup.js:198, 211 · caldav_account.js:170–173</td></tr>
+      <tr><td>8 — the name becomes the body</td><td class="at">caldav_account.js:55–61, 246–253</td></tr>
+      <tr><td>9 — refuse another origin</td><td class="at">popup.js:256–266</td></tr>
+      <tr><td>10 — the password becomes a header</td><td class="at">popup.js:268 · caldav_account.js:239–244</td></tr>
+      <tr><td>11 — a deadline</td><td class="at">popup.js:272–283</td></tr>
+      <tr><td>12 — the request</td><td class="at">popup.js:285–304</td></tr>
+      <tr><td>13 — the answer</td><td class="at">popup.js:306–318</td></tr>
+      <tr><td>14 — what you see</td><td class="at">popup.js:215–223</td></tr>
+    </table>
+
+    <h2><span class="n">1</span> The click</h2>
+    <p class="file"><code>firefox-addon/popup.js:79–82</code></p>
+    <pre> 79 makeForm.addEventListener("submit", (event) =&gt; {
+ 80   event.preventDefault();
+ 81   run(make, askedFor());
+ 82 });</pre>
+    <p>
+      <code>preventDefault()</code> stops the browser navigating away, which is what a form
+      normally does. Then two things happen in one line, and their order is the whole point:
+      <code>askedFor()</code> runs <i>first</i>, and its result — a promise — is handed to
+      <code>run()</code> along with the work to do.
+    </p>
+
+    <h2><span class="n">2</span> Ask permission, before anything else</h2>
+    <p class="file"><code>firefox-addon/popup.js:94–102</code></p>
+    <pre> 94 function askedFor() {
+ 95   try {
+ 96     permittedOrigin = new URL(document.querySelector("#home").value.trim()).origin;
+ 97     return api.permissions.request({ origins: [`${permittedOrigin}/*`] });
+ 98   } catch {
+ 99     permittedOrigin = null;
+100     // Not an address at all. Let credentials() say so in words, rather than
+101     // failing here as a permission problem, which it is not.
+102     return Promise.resolve(true);</pre>
+    <p>
+      Firefox grants a permission only while a user gesture is in hand, and the first
+      <code>await</code> anywhere spends that gesture. So this must be the first thing the click
+      does — before reading fields, before validating anything. It asks outright rather than
+      checking first, because <code>permissions.contains()</code> is itself asynchronous and would
+      cost us the right to ask; requesting one already granted resolves <code>true</code> and shows
+      nobody anything.
+    </p>
+    <p>
+      Line 96 also records <b>which</b> origin was asked about. Step 9 depends on that.
+    </p>
+
+    <h2><span class="n">3</span> Buttons off, errors caught</h2>
+    <p class="file"><code>firefox-addon/popup.js:138–149</code></p>
+    <pre>139   permitted = permission;
+140   const buttons = [...document.querySelectorAll("button")];
+141   buttons.forEach((button) =&gt; (button.disabled = true));
+142   try {
+143     await action();
+144   } catch (error) {
+145     say(error.message, "bad");
+146   } finally {
+147     buttons.forEach((button) =&gt; (button.disabled = false));
+148   }
+149 }</pre>
+    <p>
+      Every button is disabled for the duration, so a second click cannot start a second request on
+      top of the first. Everything the rest of this walkthrough throws lands at line 145 and becomes
+      a sentence in the status line — which is why the errors below are written as sentences rather
+      than as codes.
+    </p>
+
+    <h2><span class="n">4</span> Read the name</h2>
+    <p class="file"><code>firefox-addon/popup.js:189–193</code></p>
+    <pre>189   const name = document.querySelector("#name").value.trim();
+190   if (!name) throw new Error("The calendar needs a name.");
+191   if (home !== known.home || known.calendars.length === 0) {
+192     throw new Error("List the calendars again first, so this can see what is already there.");
+193   }</pre>
+    <p>
+      The name is read straight from the field, at this moment, and lives in a local
+      <code>const</code>. Line 191 is a precondition rather than a formality: step 6 checks the new
+      name against the calendars the account already has, and it can only do that if the listing on
+      screen belongs to the same server that is about to be written to.
+    </p>
+
+    <h2><span class="n">5</span> Read the password</h2>
+    <p class="file"><code>firefox-addon/popup.js:227–237</code></p>
+    <pre>227 function credentials() {
+228   const home = document.querySelector("#home").value.trim();
+229   const user = document.querySelector("#user").value.trim();
+230   const password = document.querySelector("#password").value;
+231   const problem = targetProblem(home);
+232   if (problem) throw new Error(problem);
+233   if (!user) throw new Error("Which username should this sign in with?");
+234   if (!password) throw new Error("This needs your app password to ask the server anything.");
+235   // A collection's address ends in a slash, and servers differ on whether they
+236   // forgive a missing one. None mind an extra.
+237   return { home: home.endsWith("/") ? home : `${home}/`, user, password };</pre>
+    <p>
+      <b>This is the only place the password is read, and this is the only kind of moment it
+      happens in</b> — a click, on the way to a request. It comes out of the DOM into a local
+      <code>const</code> and is returned to the caller. It is not copied into any variable that
+      outlives the call, not written to storage, and not logged.
+    </p>
+    <p>
+      <code>targetProblem()</code> at line 231 refuses plain <code>http://</code> unless the server
+      is on your own machine or network, so the password cannot be put on the wire unencrypted by
+      mistake.
+    </p>
+
+    <h2><span class="n">6</span> Refuse to overwrite</h2>
+    <p class="file"><code>firefox-addon/popup.js:195–209</code></p>
+    <pre>195   // Nothing is overwritten, and the check is the listing rather than the
+196   // server's refusal: two calendars with one name are indistinguishable in
+197   // Thunderbird's list, and the server has no opinion about that.
+198   const segment = addressFor(name);
+199   for (const calendar of known.calendars) {
+200     if (calendar.path.split("/").pop().toLowerCase() === segment.toLowerCase()) {
+201       throw new Error(`${calendar.path}/ is already there, called “${calendar.name}”.`);
+202     }
+203     if (calendar.name.toLowerCase() === name.toLowerCase()) {
+204       throw new Error(
+205         `This account already has a calendar called “${calendar.name}”. Two calendars with `+
+206           "one name are indistinguishable in Thunderbird's list, so pick another.",
+207       );
+208     }
+209   }</pre>
+    <p>
+      Two refusals, for two different reasons. Line 200 catches an address already in use — the
+      server would refuse that too, with a <code>405</code>, so this is only a nicer way to hear it.
+      Line 203 catches a <i>name</i> already in use, which the server has no opinion about at all:
+      it will happily hold two calendars called the same thing, and you would then be unable to tell
+      them apart in Thunderbird's list.
+    </p>
+
+    <h2><span class="n">7</span> The name becomes the address</h2>
+    <p class="file"><code>caldav_account.js:170–173</code> and <code>popup.js:211</code></p>
+    <pre>170 export function addressFor(name) {
+171   const slug = (name || "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+172   return slug || "calendar";
+173 }
+
+211   const address = new URL(`${segment}/`, home).href;</pre>
+    <p>
+      Everything that is not a letter or a digit becomes a hyphen, so <code>ticket 7067</code>
+      becomes <code>ticket-7067</code> and <code>Réunion budgétaire!</code> becomes
+      <code>r-union-budg-taire</code>. That is character for character what
+      <code>address_for()</code> does in <code>caldav_make_calendar.py</code>, and a test asserts
+      the two agree — otherwise a calendar made here and one made from the command line would land
+      at different addresses.
+    </p>
+    <p>
+      It also means <b>the address cannot escape its place</b>: no slash, no colon and no dot can
+      survive the substitution, so the name you type cannot reach outside the calendar home at line
+      211, whatever it says.
+    </p>
+
+    <h2><span class="n">8</span> The name becomes the body</h2>
+    <p class="file"><code>caldav_account.js:55–61</code> and <code>246–253</code></p>
+    <pre> 55 export function makeBody(name) {
+ 56   return `&lt;?xml version="1.0" encoding="utf-8"?&gt;
+ 57 &lt;C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"&gt;
+ 58   &lt;D:set&gt;&lt;D:prop&gt;&lt;D:displayname&gt;${escapeXml(name)}&lt;/D:displayname&gt;&lt;/D:prop&gt;&lt;/D:set&gt;
+ 59 &lt;/C:mkcalendar&gt;
+ 60 `;
+ 61 }
+
+246 export function escapeXml(text) {
+247   return String(text)
+248     .replace(/&amp;/g, "&amp;amp;")
+249     .replace(/&lt;/g, "&amp;lt;")
+250     .replace(/&gt;/g, "&amp;gt;")
+251     .replace(/"/g, "&amp;quot;")
+252     .replace(/'/g, "&amp;apos;")</pre>
+    <p>
+      The name is the only part of the request that comes from you, and it is escaped on the way in,
+      so a name containing <code>&lt;</code> or <code>&amp;</code> cannot alter the shape of the XML
+      around it. The body asks for one property, a display name, and lets the server default
+      everything else — it is the same body <code>caldav_make_calendar.py</code> sends, which is the
+      body Thundermail's Stalwart answered <code>201</code> to.
+    </p>
+
+    <h2><span class="n">9</span> Refuse another origin</h2>
+    <p class="file"><code>firefox-addon/popup.js:256–266</code></p>
+    <pre>256   if (permittedOrigin &amp;&amp; new URL(url).origin !== permittedOrigin) {
+257     throw new Error(
+258       `The server answered with an address on ${new URL(url).host}, which is not the ` +
+259         "server you asked about. Nothing was sent to it.",
+260     );
+261   }
+262   if (permitted &amp;&amp; !(await permitted)) {
+263     throw new Error(
+264       `Without permission to talk to ${new URL(url).host}, this cannot ask it anything.`,
+265     );
+266   }</pre>
+    <p>
+      Line 256 compares where this request is going against the origin recorded back at step 2, and
+      refuses if they differ. On <i>this</i> path the address was built locally from the home plus a
+      slug, so it can only ever match — the guard exists for the listing path, where an address can
+      come out of a server's reply. It was added after a security review found that a reply naming
+      another host could otherwise have carried your password there.
+    </p>
+    <p>
+      Line 262 is where the click's permission request is finally waited on. Nothing has been sent
+      yet.
+    </p>
+
+    <h2><span class="n">10</span> The password becomes a header</h2>
+    <p class="file"><code>firefox-addon/popup.js:268–270</code> and <code>caldav_account.js:239–244</code></p>
+    <pre>268   const headers = { Authorization: basicAuth(user, password) };
+269   if (body !== undefined) headers["Content-Type"] = "application/xml; charset=utf-8";
+270   if (depth !== undefined) headers.Depth = depth;
+
+239 export function basicAuth(user, password) {
+240   const bytes = new TextEncoder().encode(`${user}:${password}`);
+241   let binary = "";
+242   for (const byte of bytes) binary += String.fromCharCode(byte);
+243   return `Basic ${btoa(binary)}`;
+244 }</pre>
+    <p>
+      HTTP Basic: the username and password joined by a colon and base64-encoded. <b>Base64 is not
+      encryption</b> — it is trivially reversible, which is exactly why step 5 refuses plain
+      <code>http://</code>. The encoding goes through <code>TextEncoder</code> first because
+      <code>btoa()</code> throws on anything above U+00FF, and an app password is whatever the
+      provider generated.
+    </p>
+    <p>
+      The header is built here, used once, and never stored. There is no <code>Depth</code> on this
+      request: that header is for listings, and <code>MKCALENDAR</code> passes no <code>depth</code>.
+    </p>
+
+    <h2><span class="n">11</span> A deadline</h2>
+    <p class="file"><code>firefox-addon/popup.js:272–283</code></p>
+    <pre>276   const deadline = new AbortController();
+277   const timer = setTimeout(() =&gt; deadline.abort(), SECONDS * 1000);
+278   try {
+279     return await exchange(method, url, headers, body, deadline.signal);
+280   } finally {
+281     clearTimeout(timer);
+282   }</pre>
+    <p>
+      Sixty seconds for the whole exchange, headers and body alike — the same number the Python
+      tools have always used. Without it, a server that accepts the connection and then says nothing
+      would leave the page waiting forever with its buttons disabled.
+    </p>
+
+    <h2><span class="n">12</span> The request</h2>
+    <p class="file"><code>firefox-addon/popup.js:285–304</code></p>
+    <pre>289     response = await fetch(url, {
+290       method,
+291       headers,
+292       body,
+293       signal,
+294       // No cookies, ever: this signs in with the app password you typed and
+295       // nothing else, whatever session the browser happens to be holding.
+296       credentials: "omit",
+297       cache: "no-store",
+298     });
+299   } catch (error) {
+300     if (error.name === "AbortError") {
+301       throw new Error(`${host} did not answer within ${SECONDS} seconds. Nothing was changed.`);
+302     }
+303     throw new Error(`Could not reach ${host}. Check the address, and that you are online.`);</pre>
+    <p>
+      This is the only line in the whole path that touches the network. What goes out, for a
+      calendar called <code>ticket 7067</code> on <code>nemo@thundermail.com</code>:
+    </p>
+    <pre class="wire">MKCALENDAR /dav/cal/nemo%40thundermail.com/ticket-7067/ HTTP/1.1
+Host: mail.thundermail.com
+Authorization: Basic bmVtb0B0aHVuZGVybWFpbC5jb206…
+Content-Type: application/xml; charset=utf-8
+
+&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"&gt;
+  &lt;D:set&gt;&lt;D:prop&gt;&lt;D:displayname&gt;ticket 7067&lt;/D:displayname&gt;&lt;/D:prop&gt;&lt;/D:set&gt;
+&lt;/C:mkcalendar&gt;</pre>
+    <p>
+      <code>credentials: "omit"</code> means no cookies are attached, so whatever session your
+      browser holds for that site plays no part: the request is authenticated by the app password
+      you typed and by nothing else.
+    </p>
+
+    <h2><span class="n">13</span> The answer</h2>
+    <p class="file"><code>firefox-addon/popup.js:306–318</code></p>
+    <pre>306   if (response.status === 401) {
+307     throw new Error(
+308       "The server would not accept that username and password. CalDAV here needs an app " +
+309         "password; an OAuth2 account password will not do. Some servers also want the bare " +
+310         "username rather than the full address.",
+311     );
+312   }
+313   if (response.status === 404) throw new Error("There is nothing at that address — check the Location field.");
+314   if (response.status === 405) throw new Error("Something is already at that address.");
+315   if (response.status === 507) throw new Error("The account is out of space.");
+316   if (response.status === 403) throw new Error("The server would not allow that.");
+317   if (!response.ok &amp;&amp; response.status !== 207) throw new Error(`The server answered HTTP ${response.status}.`);
+318   return readAtMost(response, MOST);</pre>
+    <p>
+      <code>201 Created</code> is the success, and falls through to line 318. The named failures are
+      the ones worth telling apart: <code>401</code> is almost always an account password used where
+      an app password is needed; <code>405</code> means something is already at that address, which
+      is the server making step 6's check twice; <code>507</code> is a full account.
+    </p>
+    <p>
+      <code>readAtMost()</code> reads the reply but stops at 5 MB, so a server cannot make the page
+      buffer an unbounded amount. For <code>MKCALENDAR</code> the body is usually empty.
+    </p>
+
+    <h2><span class="n">14</span> What you see</h2>
+    <p class="file"><code>firefox-addon/popup.js:215–223</code></p>
+    <pre>215   known.calendars.push({ href: address, path: pathOf(address), name });
+216   show();
+217   say(
+218     `Made “${name}”. Subscribe to it in Thunderbird with New Calendar → On the Network, ` +
+219       "which lists what the account has.",
+220     "good",
+221   );
+222   document.querySelector("#name").value = "";</pre>
+    <p>
+      The new calendar is added to the list on screen without re-asking the server, the name field
+      is cleared so a second calendar is not made by accident, and you are told the one thing the
+      add-on cannot do for you: subscribing in Thunderbird. Making a calendar on the server does not
+      put it in your client.
+    </p>
+
+    <h2><span class="n">15</span> What this path does not do</h2>
+    <ul>
+      <li>
+        <b>It cannot delete or modify anything.</b> The add-on contains no <code>DELETE</code>,
+        <code>PUT</code>, <code>PROPPATCH</code>, <code>MOVE</code>, <code>COPY</code> or
+        <code>ACL</code> — only <code>PROPFIND</code> and <code>MKCALENDAR</code> exist in it.
+        Deleting is a command-line tool, on purpose.
+      </li>
+      <li>
+        <b>It cannot overwrite an existing calendar.</b> Step 6 refuses, and if the listing were
+        somehow stale, the server answers <code>405</code> at step 13.
+      </li>
+      <li>
+        <b>It cannot reach any other server.</b> Step 9 refuses an origin other than the one you
+        granted at step 2.
+      </li>
+      <li>
+        <b>It keeps nothing.</b> The password lives in a local variable from step 5 to step 12; what
+        happens to it afterwards is covered in <code>firefox-addon/privacy.pdf</code>, with the same
+        kind of line references.
+      </li>
+      <li>
+        <b>It sets no sharing or permissions.</b> The body at step 8 asks for a display name and
+        nothing else, so the calendar is as private as the account it belongs to.
+      </li>
+    </ul>
+
+    <footer>
+      thunderbird/desktop-support-tools · firefox-addon · MPL-2.0 · commit ba21bf4 · 1 September 2026
+    </footer>
+  </body>
+</html>

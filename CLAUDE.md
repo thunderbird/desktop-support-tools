@@ -459,8 +459,13 @@ the browser's own password manager, the password going to your mail server,
 the persisted permission grant, a visible screen. Update it, and the commit it
 names, whenever the add-on's handling of either value changes.
 
-To reprint it: open the HTML in a browser and print to PDF. There is no script,
-because rendering needs a browser and this repo has no dependencies.
+`making-a-calendar.html` is the same idea aimed at a reviewer rather than a
+user: the fourteen steps from the click to the request, quoting the code at each
+one, and the bytes that go on the wire. It is the document to hand somebody who
+asks what the add-on actually does before they let it near an account.
+
+To reprint either: open the HTML in a browser and print to PDF. There is no
+script, because rendering needs a browser and this repo has no dependencies.
 
 **`caldav_account.js` reads the XML itself rather than using `DOMParser`.** Two
 reasons, and the first is the one that matters: the same code then runs under
@@ -701,6 +706,8 @@ package_addon.py            assemble firefox-addon/ + the shared module into bui
 firefox-addon/              the add-on: manifest, popup, and nothing else
 firefox-addon/privacy.{html,pdf}  what happens to your address and app password,
                             line by line; the PDF is printed from the HTML
+firefox-addon/making-a-calendar.{html,pdf}  the write path, step by step, for
+                            somebody reviewing rather than using the add-on
 troubleshooting_info.js     the parser again, for the browser
 verdicts.js                 the engine again, for the browser
 index.html, app.js, style.css   the webapp; app.js only reads the textarea
