@@ -545,6 +545,23 @@ copy and will happily go on showing a calendar the server no longer has.
 The same two safe operations — list your calendars, make a new one — from a
 button in Firefox, for when a command line is the thing in the way.
 
+### Use the unsigned add-on from a release
+
+The add-on is not signed yet, so release Firefox loads it only until Firefox
+restarts. You need Firefox ESR 140.15 or newer.
+
+1. Download `thundermail-calendars-<version>.zip` from the
+   [latest release](https://github.com/thunderbird/desktop-support-tools/releases/latest).
+   Do not unzip it.
+2. In Firefox, type `about:debugging` in the address bar, and press Enter.
+3. Click **This Firefox**, then click **Load Temporary Add-on**.
+4. Pick the downloaded zip file. The add-on button shows in the toolbar.
+
+When Firefox restarts, the add-on goes away. To use it again, do steps 2 to 4
+again.
+
+### Build it from the source
+
 ```sh
 uv run package_addon.py          # assembles build/firefox-addon/
 uv run package_addon.py --zip    # ... and the archive you upload for signing
